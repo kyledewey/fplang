@@ -1,0 +1,6 @@
+# ignore emacs temp files
+*~
+\#*\#
+
+# ignore compiled stuff
+target
