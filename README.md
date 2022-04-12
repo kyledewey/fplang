@@ -19,17 +19,16 @@ typevar is a type variable
 functionname is a function name
 algname is the name of an algebraic data type
 consname is the name of a constructor
-type ::= int | bool | void | typevar | (type*) => type | (type+) | algname[type*]
+type ::= int | bool | void | typevar | (type*) => type | algname[type*]
 op ::= + | < | ==
 exp ::= i | x | true | false | exp op exp |
         let x = exp in exp |
-        (exp+) | exp._i |
         (x*) => exp | exp(exp*) | functionname(exp*) |
         if (exp) exp else exp |
         consname(exp*) | match exp { case+ } |
         println(exp) | { exp+ } // semicolon-separated expressions, returns last one
 case ::= pattern: exp
-pattern ::= x | _ | (pattern+) | consname(pattern*)
+pattern ::= x | _ | consname(pattern*)
 vardec ::= x: type
 consdef ::= consname(type*)
 algdef ::= algname[typevar*] = consdef+
