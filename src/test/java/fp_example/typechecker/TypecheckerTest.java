@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 import org.junit.Test;
 
 import fp_example.parser.*;
@@ -19,11 +19,18 @@ public class TypecheckerTest {
     public static void assertExpHasType(final Type expectedType,
                                         final Map<Variable, TypeTerm> typeEnvironment,
                                         final Exp exp) throws TypeErrorException {
-        final TypeTerm expectedTypeAsTerm =
-            Typechecker.translateType(expectedType,
-                                      new HashMap<Typevar, TypeTerm>());
-        assertEquals(expectedTypeAsTerm,
-                     emptyTypechecker().typeofExp(exp, typeEnvironment, new Unifier()));
+        final Unifier unifier = new Unifier();
+        final TypeTerm receivedType =
+            emptyTypechecker().typeofExp(exp, typeEnvironment, unifier);
+        if (expectedType != null) {
+            final TypeTerm expectedTypeAsTerm =
+                Typechecker.translateType(expectedType,
+                                          new HashMap<Typevar, TypeTerm>());
+            unifier.unify(expectedTypeAsTerm, receivedType);
+        } else {
+            fail("Expected exception to be thrown; received type: " +
+                 unifier.transitiveSetRepresentativeFor(receivedType));
+        }
     }
 
     public static void assertExpHasType(final Type expectedType,

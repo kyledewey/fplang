@@ -2,6 +2,7 @@ package fp_example.typechecker;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
 
@@ -14,6 +15,39 @@ public class Unifier {
         map = new HashMap<PlaceholderTypeTerm, TypeTerm>();
     }
 
+    // intended only for testing.  Returns a copy of the internal map.
+    public Map<PlaceholderTypeTerm, TypeTerm> getMapping() {
+        final Map<PlaceholderTypeTerm, TypeTerm> retval =
+            new HashMap<PlaceholderTypeTerm, TypeTerm>();
+        retval.putAll(map);
+        return retval;
+    }
+    
+    public List<TypeTerm> transitiveSetRepresentativesFor(final List<TypeTerm> terms) {
+        final List<TypeTerm> retval = new ArrayList<TypeTerm>();
+        for (final TypeTerm term : terms) {
+            retval.add(transitiveSetRepresentativeFor(term));
+        }
+        return retval;
+    }
+    
+    // gets the set representatives not only for this
+    // term, but all the terms contained within
+    public TypeTerm transitiveSetRepresentativeFor(TypeTerm term) {
+        term = setRepresentativeFor(term);
+        if (term instanceof FunctionTypeTerm) {
+            final FunctionTypeTerm asFunc = (FunctionTypeTerm)term;
+            return new FunctionTypeTerm(transitiveSetRepresentativesFor(asFunc.params),
+                                        transitiveSetRepresentativeFor(asFunc.returnType));
+        } else if (term instanceof AlgebraicTypeTerm) {
+            final AlgebraicTypeTerm asAlg = (AlgebraicTypeTerm)term;
+            return new AlgebraicTypeTerm(asAlg.algName,
+                                         transitiveSetRepresentativesFor(asAlg.typeTerms));
+        } else {
+            return term;
+        }
+    }
+    
     private TypeTerm setRepresentativeFor(TypeTerm term) {
         TypeTerm nextTerm = null;
         while (term instanceof PlaceholderTypeTerm &&
@@ -101,8 +135,14 @@ public class Unifier {
             unify(leftFunc.returnType, rightFunc.returnType);
         } else if (left instanceof AlgebraicTypeTerm &&
                    right instanceof AlgebraicTypeTerm) {
-            unifyMulti(((AlgebraicTypeTerm)left).typeTerms,
-                       ((AlgebraicTypeTerm)right).typeTerms);
+            final AlgebraicTypeTerm asAlgLeft = (AlgebraicTypeTerm)left;
+            final AlgebraicTypeTerm asAlgRight = (AlgebraicTypeTerm)right;
+            if (asAlgLeft.algName.equals(asAlgRight.algName)) {
+                unifyMulti(((AlgebraicTypeTerm)left).typeTerms,
+                           ((AlgebraicTypeTerm)right).typeTerms);
+            } else {
+                throw new TypeErrorException("algebraic data types have different names");
+            }
         } else {
             throw new TypeErrorException("type mismatch: " + left + ", " + right);
         }
