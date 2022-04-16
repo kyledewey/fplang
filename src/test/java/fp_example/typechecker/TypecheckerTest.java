@@ -290,11 +290,52 @@ public class TypecheckerTest {
         assertEquals(new AlgebraicTypeTerm(new AlgName("List"),
                                            Arrays.asList(new BoolTypeTerm())),
                      unifier.transitiveSetRepresentativeFor(receivedType));
+        typechecker.assertProgramTypechecks();
     }
-    
-    // TODO: call named functions
-    // TODO: call named functions with generics
-    // TODO: constructors
-    // TODO: generic constructors
-    // TODO: match
+
+    // map(Cons(1, Cons(2, Nil)), (x) => x + 1)
+    @Test
+    public void testMapIntInt() throws TypeErrorException {
+        final Exp makeList =
+            new MakeAlgebraicExp(new ConsName("Cons"),
+                                 Arrays.asList(new IntLiteralExp(1),
+                                               new MakeAlgebraicExp(new ConsName("Cons"),
+                                                                    Arrays.asList(new IntLiteralExp(2),
+                                                                                  new MakeAlgebraicExp(new ConsName("Nil"),
+                                                                                                       new ArrayList<Exp>())))));
+        final Exp function =
+            new MakeHigherOrderFunctionExp(Arrays.asList(new Variable("x")),
+                                           new OpExp(new VariableExp(new Variable("x")),
+                                                     new PlusOp(),
+                                                     new IntLiteralExp(1)));
+        final Exp call =
+            new CallNamedFunctionExp(new FunctionName("map"),
+                                     Arrays.asList(makeList, function));
+                                                   
+        final Typechecker typechecker = new Typechecker(mapProgram);
+
+        final Unifier unifier = new Unifier();
+        final TypeTerm receivedType = typechecker.typeofExp(call,
+                                                            new HashMap<Variable, TypeTerm>(),
+                                                            unifier);
+        assertEquals(new AlgebraicTypeTerm(new AlgName("List"),
+                                           Arrays.asList(new IntTypeTerm())),
+                     unifier.transitiveSetRepresentativeFor(receivedType));
+        typechecker.assertProgramTypechecks();
+    }
+
+    // The above two large tests collectively cover:
+    // - Calls to named functions
+    // - Calls to named functions with generics
+    // - Use of constructors
+    // - Use of generic constructors
+    // - Use of match
+    //
+    // However, these are super course-grained.  It'd be ideal to have more tests.
+    // Additionally, many of these tests do not properly stress all possible conditions,
+    // and this does not get great coverage.  Notably, we don't even test whether or
+    // not duplicate variable names, type variable names, constructor names,
+    // algebraic data type names, or named function names are handled correctly.  We
+    // also don't test whether programs are correctly rejected around these cases,
+    // which is arguably more important.
 }
