@@ -4,7 +4,9 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Arrays;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import org.junit.Test;
 
@@ -207,6 +209,89 @@ public class TypecheckerTest {
                          new BlockExp(exps));
     }
 
+    // List[A] = Cons(A, List[A]) | Nil
+    public static AlgDef listAlgDef =
+        new AlgDef(new AlgName("List"),
+                   Arrays.asList(new Typevar("A")),
+                   Arrays.asList(new ConsDef(new ConsName("Cons"),
+                                             Arrays.asList(new TypevarType(new Typevar("A")),
+                                                           new AlgebraicType(new AlgName("List"),
+                                                                             Arrays.asList(new TypevarType(new Typevar("A")))))),
+                                 new ConsDef(new ConsName("Nil"),
+                                             new ArrayList<Type>())));
+
+    // def map[A, B](list: List[A], f: (A) => B): List[B] =
+    //   match list {
+    //     Cons(head, tail): Cons(f(head), map(tail, f))
+    //     Nil(): Nil()
+    //  }
+    public static Exp consBody =
+        new MakeAlgebraicExp(new ConsName("Cons"),
+                             Arrays.asList(new CallHigherOrderFunctionExp(new VariableExp(new Variable("f")),
+                                                                          Arrays.asList(new VariableExp(new Variable("head")))),
+                                           new CallNamedFunctionExp(new FunctionName("map"),
+                                                                    Arrays.asList(new VariableExp(new Variable("tail")),
+                                                                                  new VariableExp(new Variable("f"))))));
+    public static Exp mapFunctionDefBody =
+        new MatchExp(new VariableExp(new Variable("list")),
+                     Arrays.asList(new Case(new ConsName("Cons"),
+                                            Arrays.asList(new Variable("head"),
+                                                          new Variable("tail")),
+                                            consBody),
+                                   new Case(new ConsName("Nil"),
+                                            new ArrayList<Variable>(),
+                                            new MakeAlgebraicExp(new ConsName("Nil"),
+                                                                 new ArrayList<Exp>()))));
+    
+    public static FunctionDef mapFunctionDef =
+        new FunctionDef(new FunctionName("map"),
+                        Arrays.asList(new Typevar("A"),
+                                      new Typevar("B")),
+                        Arrays.asList(new Vardec(new Variable("list"),
+                                                 new AlgebraicType(new AlgName("List"),
+                                                                   Arrays.asList(new TypevarType(new Typevar("A"))))),
+                                      new Vardec(new Variable("f"),
+                                                 new FunctionType(Arrays.asList(new TypevarType(new Typevar("A"))),
+                                                                  new TypevarType(new Typevar("B"))))),
+                        new AlgebraicType(new AlgName("List"),
+                                          Arrays.asList(new TypevarType(new Typevar("B")))),
+                        mapFunctionDefBody);
+
+    public static Program mapProgram =
+        new Program(Arrays.asList(listAlgDef),
+                    Arrays.asList(mapFunctionDef),
+                    new IntLiteralExp(0));
+
+    // map(Cons(1, Cons(2, Nil)), (x) => x < 2)
+    @Test
+    public void testMapIntBool() throws TypeErrorException {
+        final Exp makeList =
+            new MakeAlgebraicExp(new ConsName("Cons"),
+                                 Arrays.asList(new IntLiteralExp(1),
+                                               new MakeAlgebraicExp(new ConsName("Cons"),
+                                                                    Arrays.asList(new IntLiteralExp(2),
+                                                                                  new MakeAlgebraicExp(new ConsName("Nil"),
+                                                                                                       new ArrayList<Exp>())))));
+        final Exp function =
+            new MakeHigherOrderFunctionExp(Arrays.asList(new Variable("x")),
+                                           new OpExp(new VariableExp(new Variable("x")),
+                                                     new LessThanOp(),
+                                                     new IntLiteralExp(2)));
+        final Exp call =
+            new CallNamedFunctionExp(new FunctionName("map"),
+                                     Arrays.asList(makeList, function));
+                                                   
+        final Typechecker typechecker = new Typechecker(mapProgram);
+
+        final Unifier unifier = new Unifier();
+        final TypeTerm receivedType = typechecker.typeofExp(call,
+                                                            new HashMap<Variable, TypeTerm>(),
+                                                            unifier);
+        assertEquals(new AlgebraicTypeTerm(new AlgName("List"),
+                                           Arrays.asList(new BoolTypeTerm())),
+                     unifier.transitiveSetRepresentativeFor(receivedType));
+    }
+    
     // TODO: call named functions
     // TODO: call named functions with generics
     // TODO: constructors

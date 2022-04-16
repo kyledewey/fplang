@@ -311,7 +311,7 @@ public class Typechecker {
     }
 
     public AlgDef algDefForConstructorName(final ConsName consName) throws TypeErrorException {
-        final AlgDef candidate = algNameToAlgDef.get(consName);
+        final AlgDef candidate = consNameToAlgDef.get(consName);
         if (candidate == null) {
             throw new TypeErrorException("Undeclared constructor: " + consName);
         } else {
