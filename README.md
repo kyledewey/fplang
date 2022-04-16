@@ -27,8 +27,7 @@ exp ::= i | x | true | false | exp op exp |
         if (exp) exp else exp |
         consname(exp*) | match exp { case+ } |
         println(exp) | { exp+ } // semicolon-separated expressions, returns last one
-case ::= pattern: exp
-pattern ::= x | _ | consname(pattern*)
+case ::= consname(x*): exp
 vardec ::= x: type
 consdef ::= consname(type*)
 algdef ::= algname[typevar*] = consdef+

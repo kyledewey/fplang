@@ -1,6 +1,7 @@
 package fp_example.parser;
 
 import java.util.List;
+import java.util.ArrayList;
 
 public class FunctionDef {
     public final FunctionName functionName;
@@ -21,6 +22,14 @@ public class FunctionDef {
         this.body = body;
     }
 
+    public List<Type> paramTypes() {
+        final List<Type> retval = new ArrayList<Type>();
+        for (final Vardec vardec : params) {
+            retval.add(vardec.type);
+        }
+        return retval;
+    }
+    
     public int hashCode() {
         return (functionName.hashCode() +
                 typevars.hashCode() +

@@ -1,31 +1,40 @@
 package fp_example.parser;
 
-public class Case {
-    public final Pattern pattern;
-    public final Exp exp;
+import java.util.List;
 
-    public Case(final Pattern pattern,
-                final Exp exp) {
-        this.pattern = pattern;
-        this.exp = exp;
+public class Case {
+    public final ConsName consName;
+    public final List<Variable> variables;
+    public final Exp body;
+
+    public Case(final ConsName consName,
+                final List<Variable> variables,
+                final Exp body) {
+        this.consName = consName;
+        this.variables = variables;
+        this.body = body;
     }
 
     public int hashCode() {
-        return pattern.hashCode() + exp.hashCode();
+        return (consName.hashCode() +
+                variables.hashCode() +
+                body.hashCode());
     }
 
     public boolean equals(final Object other) {
         if (other instanceof Case) {
             final Case asCase = (Case)other;
-            return (pattern.equals(asCase.pattern) &&
-                    exp.equals(asCase.exp));
+            return (consName.equals(asCase.consName) &&
+                    variables.equals(asCase.variables) &&
+                    body.equals(asCase.body));
         } else {
             return false;
         }
     }
 
     public String toString() {
-        return ("Case(" + pattern.toString() + ", " +
-                exp.toString() + ")");
+        return ("Case(" + consName.toString() + ", " +
+                variables.toString() + ", " +
+                body.toString() + ")");
     }
 }
