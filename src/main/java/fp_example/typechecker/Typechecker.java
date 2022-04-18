@@ -427,6 +427,8 @@ public class Typechecker {
         return retval;
     }
 
+    // List[Placeholder(0)]
+    //
     // Give back the expected type for the given cases.
     // Uses "Template" because this expected type will have placeholders in it; this
     // needs to be unified with the actual discriminant's type to fill these in.
@@ -440,6 +442,11 @@ public class Typechecker {
         return new AlgebraicTypeTerm(algDef.algName, typeTerms);
     }
 
+    // discriminant type: List[Placeholder(0)]
+    // case: Cons(head, tail)
+    // definition: List[A] = Cons(A, List[A]) | Nil
+    // head: Placeholder(0)
+    // tail: List[Placeholder(0)]
     public TypeTerm typeofMatchCase(final Case theCase,
                                     final AlgebraicTypeTerm discriminantType,
                                     Map<Variable, TypeTerm> typeEnvironment,
@@ -466,6 +473,11 @@ public class Typechecker {
             new AlgebraicTypeTerm(discriminantType.algName,
                                   substitution.generics);
 
+        // discriminantType: List[int]
+        // caseType: List[Placeholder(0)]
+        // substitution.params: List(Placeholder(0), List[Placeholder(0)])
+        // substitution.generics: List(Placeholder(0))
+        //
         // Unify this against the discriminant type.  This will instantiate
         // any placeholders in the constructor.
         unifier.unify(discriminantType, caseType);
@@ -606,6 +618,8 @@ public class Typechecker {
         final Map<Variable, TypeTerm> typeEnvironment =
             new HashMap<Variable, TypeTerm>();
         for (final Vardec param : functionDef.params) {
+            // TypevarType(Typevar(A)) -> TypevarTypeTerm(Typevar(A))
+            // TypevarType(Typevar(B)) -> TypevarTypeTerm(Typevar(B))
             final TypeTerm translatedType = translateType(param.type, mapping);
             typeEnvironment.put(param.variable, translatedType);
         }
