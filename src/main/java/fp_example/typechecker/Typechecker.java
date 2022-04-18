@@ -79,7 +79,11 @@ public class Typechecker {
         }
         return retval;
     }
-    
+
+    // List[A] = Cons(A, List[A]) | Nil()
+    // SomeData[] = MyData(List[])
+    //
+    // def map[A](list: List[], f: (A) => B): List[B] = ...
     public Typechecker(final Program program) throws TypeErrorException {
         this.program = program;
 

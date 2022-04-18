@@ -60,6 +60,7 @@ public class TypeSanitizer {
             } else if (asAlgebraic.types.size() != algDef.typevars.size()) {
                 throw new TypeErrorException("Incorrect number of types for algebraic data type");
             }
+            assertTypesOk(asAlgebraic.types);
         } else {
             throw new TypeErrorException("Unsupported type: " + type);
         }

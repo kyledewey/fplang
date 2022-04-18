@@ -114,8 +114,7 @@ public class Unifier {
     
     // returns if they could unify, else throws an exception.
     // left in an inconsistent state if unification fails
-    public void unify(TypeTerm left, TypeTerm right)
-        throws TypeErrorException {
+    public void unify(TypeTerm left, TypeTerm right) throws TypeErrorException {
         left = setRepresentativeFor(left);
         right = setRepresentativeFor(right);
 
