@@ -80,10 +80,6 @@ public class Typechecker {
         return retval;
     }
 
-    // List[A] = Cons(A, List[A]) | Nil()
-    // SomeData[] = MyData(List[])
-    //
-    // def map[A](list: List[], f: (A) => B): List[B] = ...
     public Typechecker(final Program program) throws TypeErrorException {
         this.program = program;
 
@@ -134,6 +130,7 @@ public class Typechecker {
         }
     }
 
+    // let variable = initializer in body
     public TypeTerm typeofLetExp(final LetExp exp,
                                  final Map<Variable, TypeTerm> typeEnvironment,
                                  final Unifier unifier) throws TypeErrorException {
@@ -278,6 +275,27 @@ public class Typechecker {
                                                           mapping));
     }
 
+    // Tuple3[A, B, C] = MakeTuple3(A, B, C)
+    // mapping: Map(A -> Placeholder(0),
+    //              B -> Placeholder(1),
+    //              C -> Placeholder(2))
+    // generics: List(Placeholder(0),
+    //                Placeholder(1),
+    //                Placeholder(2))
+    //
+    // params: List(Placeholder(0), Placeholder(1), Placeholder(2))
+    // generics: List(Placeholder(0), Placeholder(1), Placeholder(2))
+    //
+    // Either[A, B] = Left(A) | Right(B)
+    // Left(...)
+    // mapping: Map(A -> Placeholder(0), B -> Placeholder(1))
+    // generics: List(Placeholder(0), Placeholder(1))
+    // params: List(Placeholder(0))
+    //
+    // Right(...)
+    // mapping: Map(A -> Placeholder(0), B -> Placeholder(1))
+    // generics: List(Placeholder(0), Placeholder(1))
+    // params: List(Placeholder(1))
     public ConstructorTypeSubstitution typeSubstitutionForConstructor(final ConsName consName) throws TypeErrorException {
         final AlgDef algDef = consNameToAlgDef.get(consName);
         if (algDef == null) {
@@ -292,7 +310,8 @@ public class Typechecker {
         
         for (final ConsDef consDef : algDef.constructors) {
             if (consName.equals(consDef.consName)) {
-                return new ConstructorTypeSubstitution(translateTypes(consDef.types, mapping),
+                return new ConstructorTypeSubstitution(algDef.algName,
+                                                       translateTypes(consDef.types, mapping),
                                                        generics);
             }
         }
@@ -308,6 +327,19 @@ public class Typechecker {
         // - Map every type variable to a unique placeholder
         // - Translate every syntactic type for an equivalent TypeTerm, replacing
         //   type variables with the placeholders
+        //
+        // def map[A, B](list: List[A], f: (A) => B): List[B] = ...
+        //
+        // def map(list: List[Placeholder(0)], f: (Placeholder(0)) => Placeholder(1)): List[Placeholder(1)]
+        //
+        // Map(A -> Placeholder(0),
+        //     B -> Placeholder(1))
+        //
+        // substitution: params: List(List[Placeholder(0)],
+        //                            (Placeholder(0)) => Placeholder(1))
+        //               returnType: List[Placeholder(1)]
+        // map(myList, myFunction)
+        //
         final FunctionTypeSubstitution substitution = typeSubstitutionForFunction(exp.functionName);
         final List<TypeTerm> actualParamTypes = typeofExps(exp.params, typeEnvironment, unifier);
         unifier.unifyMulti(substitution.params, actualParamTypes);
@@ -322,7 +354,8 @@ public class Typechecker {
             return candidate;
         }
     }
-    
+
+    // Cons(1, Nil()): List[int]
     public TypeTerm typeofMakeAlgebraicExp(final MakeAlgebraicExp exp,
                                            final Map<Variable, TypeTerm> typeEnvironment,
                                            final Unifier unifier) throws TypeErrorException {
@@ -330,7 +363,7 @@ public class Typechecker {
             typeSubstitutionForConstructor(exp.consName);
         final List<TypeTerm> actualParamTypes = typeofExps(exp.exps, typeEnvironment, unifier);
         unifier.unifyMulti(substitution.params, actualParamTypes);
-        return new AlgebraicTypeTerm(algDefForConstructorName(exp.consName).algName,
+        return new AlgebraicTypeTerm(substitution.algName,
                                      substitution.generics);
     }
                                            
