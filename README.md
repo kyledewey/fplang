@@ -53,14 +53,15 @@ equals_exp ::= less_than_exp (`==` less_than_exp)*
 exp ::= make_function_exp | equals_exp
 make_function_exp ::= `(` comma_ids `)` `=>` exp
 semicolon_exps ::= exp `;` (exp `;`)*
-comma_exps ::= [exp (exp `,`)*]
-comma_ids ::= [id (id `,`)*]
-comma_types ::= [type (type `,`)*]
-comma_vardecs ::= [vardec (`,` vardec)*]
-case ::= id `(` comma_ids `)` `:` exp
+comma_exps ::= [exp (`,` exp)*]
+comma_ids ::= [id (`,` id)*]
+comma_types ::= [type (`,` type)*]
 vardec ::= id `:` type
+comma_vardecs ::= [vardec (`,` vardec)*]
+case ::= `case` id `(` comma_ids `)` `:` exp
 consdef ::= id `(` comma_types `)`
-algdef ::= `type` id `[` comma_ids `]` `=` consdef+
+pipe_consdefs ::= consdef (`|` consdef)*
+algdef ::= `type` id `[` comma_ids `]` `=` pipe_consdefs `;`
 functiondef ::= `def` id `[` comma_ids `]` `(` comma_vardecs `)` `:` type `=` exp
 program ::= algdef* functiondef* exp // exp is the entry point
 ```

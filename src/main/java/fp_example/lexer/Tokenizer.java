@@ -22,6 +22,7 @@ public class Tokenizer {
         RESERVED_WORDS.put("println", new PrintlnToken());
         RESERVED_WORDS.put("type", new TypeToken());
         RESERVED_WORDS.put("def", new DefToken());
+        RESERVED_WORDS.put("case", new CaseToken());
     }
 
     // tries them in the same order they are listed as
@@ -42,6 +43,7 @@ public class Tokenizer {
         SYMBOLS.add(new Symbol(";", new SemicolonToken()));
         SYMBOLS.add(new Symbol(",", new CommaToken()));
         SYMBOLS.add(new Symbol(":", new ColonToken()));
+        SYMBOLS.add(new Symbol("|", new PipeToken()));
     }
     
     public final String input;
