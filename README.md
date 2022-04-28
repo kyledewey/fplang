@@ -35,6 +35,41 @@ functiondef ::= def functionname[typevar*](vardec*): type = exp
 program ::= algdef* functiondef* exp // exp is the entry point
 ```
 
+Refactored grammar:
+```
+id is an identifier
+i is an integer
+type ::= `int` | `bool` | `void` | id | `(` comma_types `)` `=>` type | id `[` comma_types `]`
+primary_exp ::= i | id | `true` | `false` |
+                `let` x `=` exp `in` exp |
+                `if` `(` exp `)` exp `else` exp |
+                `match` exp `{` case+ `}` |
+                `println` `(` exp `)` | `{` semicolon_exps `}` |
+                `(` exp `)`
+call_exp ::= primary_exp (`(` comma_exps `)`)*
+additive_exp ::= call_exp (`+` call_exp)*
+less_than_exp ::= additive_exp (`<` additive_exp)*
+equals_exp ::= less_than_exp (`==` less_than_exp)*
+exp ::= make_function_exp | equals_exp
+make_function_exp ::= `(` comma_ids `)` `=>` exp
+semicolon_exps ::= exp `;` (exp `;`)*
+comma_exps ::= [exp (exp `,`)*]
+comma_ids ::= [id (id `,`)*]
+comma_types ::= [type (type `,`)*]
+comma_vardecs ::= [vardec (`,` vardec)*]
+case ::= id `(` comma_ids `)` `:` exp
+vardec ::= id `:` type
+consdef ::= id `(` comma_types `)`
+algdef ::= `type` id `[` comma_ids `]` `=` consdef+
+functiondef ::= `def` id `[` comma_ids `]` `(` comma_vardecs `)` `:` type `=` exp
+program ::= algdef* functiondef* exp // exp is the entry point
+```
+
+Syntactically, `consname(exp*)` and `functionname(exp*)` are both special cases of `exp(exp*)`, which cannot be differentiated until typechecking.
+This is because an identifier can be an expression, and variables in an expression context cannot unambiguously be resolved (is this a variable?  A constructor name?  A function name?) without type information.
+
+
+Example code from typechecking videos:
 ```
 List[A] = Cons(A, List[A]) | Nil()
 
