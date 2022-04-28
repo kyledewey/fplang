@@ -38,10 +38,10 @@ public class Parser {
             boolean shouldRun = true;
             while (shouldRun) {
                 try {
-                    current = parseType(position);
-                    assertTokenHereIs(current.position, new CommaToken());
+                    assertTokenHereIs(position, new CommaToken());
+                    current = parseType(position + 1);
                     types.add(current.result);
-                    position = current.position + 1;
+                    position = current.position;
                 } catch (final ParseException e) {
                     shouldRun = false;
                 }

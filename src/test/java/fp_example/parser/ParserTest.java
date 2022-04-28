@@ -356,5 +356,46 @@ public class ParserTest {
             EITHER_PARSER.parseAlgDefs(0);
         assertEquals(expected, received);
     }
+
+    // type List[A] = Cons(A, List[A]) | Nil();
+    public static final AlgDef LIST_ALG_DEF =
+        new AlgDef(new AlgName("List"),
+                   Arrays.asList(new Typevar("A")),
+                   Arrays.asList(new ConsDef(new ConsName("Cons"),
+                                             Arrays.asList(new TypevarType(new Typevar("A")),
+                                                           new AlgebraicType(new AlgName("List"),
+                                                                             Arrays.asList(new TypevarType(new Typevar("A")))))),
+                                 new ConsDef(new ConsName("Nil"),
+                                             new ArrayList<Type>())));
+    public static final Parser LIST_PARSER =
+        mkParser(new TypeToken(),
+                 new IdentifierToken("List"),
+                 new LeftSquareBracketToken(),
+                 new IdentifierToken("A"),
+                 new RightSquareBracketToken(),
+                 new SingleEqualsToken(),
+                 new IdentifierToken("Cons"),
+                 new LeftParenToken(),
+                 new IdentifierToken("A"),
+                 new CommaToken(),
+                 new IdentifierToken("List"),
+                 new LeftSquareBracketToken(),
+                 new IdentifierToken("A"),
+                 new RightSquareBracketToken(),
+                 new RightParenToken(),
+                 new PipeToken(),
+                 new IdentifierToken("Nil"),
+                 new LeftParenToken(),
+                 new RightParenToken(),
+                 new SemicolonToken());
+
+    @Test
+    public void testAlgebraicList() throws ParseException {
+        final ParseResult<AlgDef> expected =
+            new ParseResult<AlgDef>(LIST_ALG_DEF, 20);
+        final ParseResult<AlgDef> received =
+            LIST_PARSER.parseAlgDef(0);
+        assertEquals(expected, received);
+    }
 }
 
