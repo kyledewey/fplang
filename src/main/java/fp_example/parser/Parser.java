@@ -69,13 +69,20 @@ public class Parser {
                                                           returnType.result),
                                          returnType.position);
         } else if (token instanceof IdentifierToken) {
-            assertTokenHereIs(position + 1, new LeftSquareBracketToken());
-            final ParseResult<List<Type>> types = parseCommaTypes(position + 2);
-            assertTokenHereIs(types.position, new RightSquareBracketToken());
+            // could be either a type variable or a algebraic type
+            // try it as a algebraic, then fall back to identifier
             final String name = ((IdentifierToken)token).identifier;
-            return new ParseResult<Type>(new AlgebraicType(new AlgName(name),
-                                                           types.result),
-                                         types.position + 1);
+            try {
+                assertTokenHereIs(position + 1, new LeftSquareBracketToken());
+                final ParseResult<List<Type>> types = parseCommaTypes(position + 2);
+                assertTokenHereIs(types.position, new RightSquareBracketToken());
+                return new ParseResult<Type>(new AlgebraicType(new AlgName(name),
+                                                               types.result),
+                                             types.position + 1);
+            } catch (final ParseException e) {
+                return new ParseResult<Type>(new TypevarType(new Typevar(name)),
+                                             position + 1);
+            }
         } else {
             throw new ParseException("Unknown type: " + token);
         }
@@ -505,7 +512,7 @@ public class Parser {
                 retval.add(algDef.result);
                 position = algDef.position;
             } catch (final ParseException e) {
-                shouldRun = true;
+                shouldRun = false;
             }
         }
 
@@ -568,5 +575,9 @@ public class Parser {
         } else {
             return retval.result;
         }
+    }
+
+    public static Program parseProgram(final Token[] tokens) throws ParseException {
+        return new Parser(tokens).parseProgram();
     }
 }
