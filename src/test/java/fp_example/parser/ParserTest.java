@@ -409,7 +409,7 @@ public class ParserTest {
 
     @Test
     public void testParseNonGenericFunction() throws ParseException {
-        // def add[](x: int, y: int): int = x + y
+        // def add[](x: int, y: int): int = x + y;
         final FunctionDef functionDef =
             new FunctionDef(new FunctionName("add"),
                             new ArrayList<Typevar>(),
@@ -422,7 +422,7 @@ public class ParserTest {
                                       new PlusOp(),
                                       new VariableExp(new Variable("y"))));
         final ParseResult<FunctionDef> expected =
-            new ParseResult<FunctionDef>(functionDef, 19);
+            new ParseResult<FunctionDef>(functionDef, 20);
         final ParseResult<FunctionDef> received =
             mkParser(new DefToken(),
                      new IdentifierToken("add"),
@@ -442,7 +442,8 @@ public class ParserTest {
                      new SingleEqualsToken(),
                      new IdentifierToken("x"),
                      new PlusToken(),
-                     new IdentifierToken("y")).parseFunctionDef(0);
+                     new IdentifierToken("y"),
+                     new SemicolonToken()).parseFunctionDef(0);
         assertEquals(expected, received);
     }
 }

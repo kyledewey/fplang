@@ -519,7 +519,7 @@ public class Parser {
         return new ParseResult<List<AlgDef>>(retval, position);
     }
     
-    // functiondef ::= `def` id `[` comma_ids `]` `(` comma_vardecs `)` `:` type `=` exp
+    // functiondef ::= `def` id `[` comma_ids `]` `(` comma_vardecs `)` `:` type `=` exp `;`
     public ParseResult<FunctionDef> parseFunctionDef(final int position) throws ParseException {
         assertTokenHereIs(position, new DefToken());
         final ParseResult<FunctionName> functionName = parseFunctionName(position + 1);
@@ -533,12 +533,13 @@ public class Parser {
         final ParseResult<Type> returnType = parseType(params.position + 2);
         assertTokenHereIs(returnType.position, new SingleEqualsToken());
         final ParseResult<Exp> body = parseExp(returnType.position + 1);
+        assertTokenHereIs(body.position, new SemicolonToken());
         return new ParseResult<FunctionDef>(new FunctionDef(functionName.result,
                                                             typevars.result,
                                                             params.result,
                                                             returnType.result,
                                                             body.result),
-                                            body.position);
+                                            body.position + 1);
     }
 
     public ParseResult<List<FunctionDef>> parseFunctionDefs(int position) throws ParseException {

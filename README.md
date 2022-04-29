@@ -30,8 +30,8 @@ exp ::= i | x | true | false | exp op exp |
 case ::= consname(x*): exp
 vardec ::= x: type
 consdef ::= consname(type*)
-algdef ::= algname[typevar*] = consdef+
-functiondef ::= def functionname[typevar*](vardec*): type = exp
+algdef ::= `type` algname[typevar*] = consdef+ `;`
+functiondef ::= def functionname[typevar*](vardec*): type = exp `;`
 program ::= algdef* functiondef* exp // exp is the entry point
 ```
 
@@ -62,7 +62,7 @@ case ::= `case` id `(` comma_ids `)` `:` exp
 consdef ::= id `(` comma_types `)`
 pipe_consdefs ::= consdef (`|` consdef)*
 algdef ::= `type` id `[` comma_ids `]` `=` pipe_consdefs `;`
-functiondef ::= `def` id `[` comma_ids `]` `(` comma_vardecs `)` `:` type `=` exp
+functiondef ::= `def` id `[` comma_ids `]` `(` comma_vardecs `)` `:` type `=` exp `;`
 program ::= algdef* functiondef* exp // exp is the entry point
 ```
 
