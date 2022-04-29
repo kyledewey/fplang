@@ -56,6 +56,7 @@ public class Typechecker {
     }
     
     public static Map<FunctionName, FunctionDef> makeFunctions(final Map<AlgName, AlgDef> algebraics,
+                                                               final Map<ConsName, AlgDef> constructors,
                                                                final Program program)
         throws TypeErrorException {
         final Map<FunctionName, FunctionDef> retval = new HashMap<FunctionName, FunctionDef>();
@@ -74,6 +75,8 @@ public class Typechecker {
             final FunctionName functionName = functionDef.functionName;
             if (retval.containsKey(functionName)) {
                 throw new TypeErrorException("Duplicate function name: " + functionName);
+            } else if (constructors.containsKey(new ConsName(functionName.name))) {
+                throw new TypeErrorException("Function names and constructor names must be distinct: " + functionName);
             }
             retval.put(functionName, functionDef);
         }
@@ -85,7 +88,9 @@ public class Typechecker {
 
         algNameToAlgDef = makeAlgebraics(program);
         consNameToAlgDef = makeConstructors(algNameToAlgDef);
-        funcNameToFuncDef = makeFunctions(algNameToAlgDef, program);
+        funcNameToFuncDef = makeFunctions(algNameToAlgDef,
+                                          consNameToAlgDef,
+                                          program);
     }
 
     public static Map<Variable, TypeTerm> addVarInScope(final Map<Variable, TypeTerm> typeEnvironment,
@@ -168,6 +173,108 @@ public class Typechecker {
         return new FunctionTypeTerm(variableTypes, returnType);
     }
 
+    public TypeTerm typeofCallLikeExp(final CallLikeExp exp,
+                                      final Map<Variable, TypeTerm> typeEnvironment,
+                                      final Unifier unifier) throws TypeErrorException {
+        // This could be one of the following:
+        // -Calling a higher-order function (exp(exp*))
+        // -Calling a named function (functionName(exp*) - really variable(exp*))
+        // -Using a constructor for an algebraic data type (consName(exp*) - really variable(exp*))
+
+        if (exp.functionLike instanceof VariableExp) {
+            // Could be any of the three alternatives.
+            // If this variable is in scope, it's a function.
+            // If this variable isn't in scope, try for a named function.
+            // If there isn't a named function with this name, then try for constructors.
+            // The Typechecker constructor guarantees that there is no overlap between function and
+            // constructor names, so there should be no ambiguity there.
+            final Variable nameAsVariable = ((VariableExp)exp.functionLike).variable;
+            final FunctionName nameAsFunctionName = new FunctionName(nameAsVariable.name);
+            final ConsName nameAsConsName = new ConsName(nameAsVariable.name);
+            if (typeEnvironment.containsKey(nameAsVariable)) {
+                return typeofCallHOF(exp.functionLike,
+                                     exp.params,
+                                     typeEnvironment,
+                                     unifier);
+            } else if (funcNameToFuncDef.containsKey(nameAsFunctionName)) {
+                return typeofCallNamed(nameAsFunctionName,
+                                       exp.params,
+                                       typeEnvironment,
+                                       unifier);
+            } else if (consNameToAlgDef.containsKey(nameAsConsName)) {
+                return typeofMakeAlgebraic(nameAsConsName,
+                                           exp.params,
+                                           typeEnvironment,
+                                           unifier);
+            } else {
+                throw new TypeErrorException("Call to unknown target: " + nameAsVariable.name);
+            }
+        } else {
+            // if it's an arbitrary expression, syntactically it has
+            // to be a higher-order function call
+            return typeofCallHOF(exp.functionLike,
+                                 exp.params,
+                                 typeEnvironment,
+                                 unifier);
+        }
+    }
+
+    public TypeTerm typeofCallHOF(final Exp target,
+                                  final List<Exp> params,
+                                  final Map<Variable, TypeTerm> typeEnvironment,
+                                  final Unifier unifier) throws TypeErrorException {
+        final List<TypeTerm> actualParamTypes = typeofExps(params,
+                                                           typeEnvironment,
+                                                           unifier);
+        final TypeTerm actualFunctionType = typeofExp(target,
+                                                      typeEnvironment,
+                                                      unifier);
+        final TypeTerm returnType = new PlaceholderTypeTerm();
+        unifier.unify(actualFunctionType,
+                      new FunctionTypeTerm(actualParamTypes, returnType));
+        return returnType;
+    }
+
+    public TypeTerm typeofCallNamed(final FunctionName functionName,
+                                    final List<Exp> params,
+                                    final Map<Variable, TypeTerm> typeEnvironment,
+                                    final Unifier unifier) throws TypeErrorException {
+        // type substitutions:
+        // - Go to the generic signature
+        // - Map every type variable to a unique placeholder
+        // - Translate every syntactic type for an equivalent TypeTerm, replacing
+        //   type variables with the placeholders
+        //
+        // def map[A, B](list: List[A], f: (A) => B): List[B] = ...
+        //
+        // def map(list: List[Placeholder(0)], f: (Placeholder(0)) => Placeholder(1)): List[Placeholder(1)]
+        //
+        // Map(A -> Placeholder(0),
+        //     B -> Placeholder(1))
+        //
+        // substitution: params: List(List[Placeholder(0)],
+        //                            (Placeholder(0)) => Placeholder(1))
+        //               returnType: List[Placeholder(1)]
+        // map(myList, myFunction)
+        //
+        final FunctionTypeSubstitution substitution = typeSubstitutionForFunction(functionName);
+        final List<TypeTerm> actualParamTypes = typeofExps(params, typeEnvironment, unifier);
+        unifier.unifyMulti(substitution.params, actualParamTypes);
+        return substitution.returnType;
+    }
+
+    // Cons(1, Nil()): List[int]
+    public TypeTerm typeofMakeAlgebraic(final ConsName consName,
+                                        final List<Exp> params,
+                                        final Map<Variable, TypeTerm> typeEnvironment,
+                                        final Unifier unifier) throws TypeErrorException {
+        final ConstructorTypeSubstitution substitution = typeSubstitutionForConstructor(consName);
+        final List<TypeTerm> actualParamTypes = typeofExps(params, typeEnvironment, unifier);
+        unifier.unifyMulti(substitution.params, actualParamTypes);
+        return new AlgebraicTypeTerm(substitution.algName,
+                                     substitution.generics);
+    }
+
     public List<TypeTerm> typeofExps(final List<Exp> exps,
                                      final Map<Variable, TypeTerm> typeEnvironment,
                                      final Unifier unifier) throws TypeErrorException {
@@ -176,22 +283,7 @@ public class Typechecker {
             retval.add(typeofExp(exp, typeEnvironment, unifier));
         }
         return retval;
-    }
-    
-    public TypeTerm typeofCallHOFExp(final CallHigherOrderFunctionExp exp,
-                                     final Map<Variable, TypeTerm> typeEnvironment,
-                                     final Unifier unifier) throws TypeErrorException {
-        final List<TypeTerm> actualParamTypes = typeofExps(exp.params,
-                                                           typeEnvironment,
-                                                           unifier);
-        final TypeTerm actualFunctionType = typeofExp(exp.function,
-                                                      typeEnvironment,
-                                                      unifier);
-        final TypeTerm returnType = new PlaceholderTypeTerm();
-        unifier.unify(actualFunctionType,
-                      new FunctionTypeTerm(actualParamTypes, returnType));
-        return returnType;
-    }
+    }    
 
     public static List<TypeTerm> translateTypes(final List<Type> types,
                                                 final Map<Typevar, TypeTerm> mapping)
@@ -319,33 +411,6 @@ public class Typechecker {
         throw new TypeErrorException("Unknown constructor: " + consName);
     }
     
-    public TypeTerm typeofCallNamedExp(final CallNamedFunctionExp exp,
-                                       final Map<Variable, TypeTerm> typeEnvironment,
-                                       final Unifier unifier) throws TypeErrorException {
-        // type substitutions:
-        // - Go to the generic signature
-        // - Map every type variable to a unique placeholder
-        // - Translate every syntactic type for an equivalent TypeTerm, replacing
-        //   type variables with the placeholders
-        //
-        // def map[A, B](list: List[A], f: (A) => B): List[B] = ...
-        //
-        // def map(list: List[Placeholder(0)], f: (Placeholder(0)) => Placeholder(1)): List[Placeholder(1)]
-        //
-        // Map(A -> Placeholder(0),
-        //     B -> Placeholder(1))
-        //
-        // substitution: params: List(List[Placeholder(0)],
-        //                            (Placeholder(0)) => Placeholder(1))
-        //               returnType: List[Placeholder(1)]
-        // map(myList, myFunction)
-        //
-        final FunctionTypeSubstitution substitution = typeSubstitutionForFunction(exp.functionName);
-        final List<TypeTerm> actualParamTypes = typeofExps(exp.params, typeEnvironment, unifier);
-        unifier.unifyMulti(substitution.params, actualParamTypes);
-        return substitution.returnType;
-    }
-
     public AlgDef algDefForConstructorName(final ConsName consName) throws TypeErrorException {
         final AlgDef candidate = consNameToAlgDef.get(consName);
         if (candidate == null) {
@@ -353,18 +418,6 @@ public class Typechecker {
         } else {
             return candidate;
         }
-    }
-
-    // Cons(1, Nil()): List[int]
-    public TypeTerm typeofMakeAlgebraicExp(final MakeAlgebraicExp exp,
-                                           final Map<Variable, TypeTerm> typeEnvironment,
-                                           final Unifier unifier) throws TypeErrorException {
-        final ConstructorTypeSubstitution substitution =
-            typeSubstitutionForConstructor(exp.consName);
-        final List<TypeTerm> actualParamTypes = typeofExps(exp.exps, typeEnvironment, unifier);
-        unifier.unifyMulti(substitution.params, actualParamTypes);
-        return new AlgebraicTypeTerm(substitution.algName,
-                                     substitution.generics);
     }
                                            
     public TypeTerm typeofIfExp(final IfExp exp,
@@ -564,20 +617,12 @@ public class Typechecker {
             return typeofMakeHOFExp((MakeHigherOrderFunctionExp)exp,
                                     typeEnvironment,
                                     unifier);
-        } else if (exp instanceof CallHigherOrderFunctionExp) {
-            return typeofCallHOFExp((CallHigherOrderFunctionExp)exp,
-                                    typeEnvironment,
-                                    unifier);
-        } else if (exp instanceof CallNamedFunctionExp) {
-            return typeofCallNamedExp((CallNamedFunctionExp)exp,
-                                      typeEnvironment,
-                                      unifier);
+        } else if (exp instanceof CallLikeExp) {
+            return typeofCallLikeExp((CallLikeExp)exp,
+                                     typeEnvironment,
+                                     unifier);
         } else if (exp instanceof IfExp) {
             return typeofIfExp((IfExp)exp, typeEnvironment, unifier);
-        } else if (exp instanceof MakeAlgebraicExp) {
-            return typeofMakeAlgebraicExp((MakeAlgebraicExp)exp,
-                                          typeEnvironment,
-                                          unifier);
         } else if (exp instanceof MatchExp) {
             return typeofMatchExp((MatchExp)exp,
                                   typeEnvironment,

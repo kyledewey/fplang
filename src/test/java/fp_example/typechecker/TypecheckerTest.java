@@ -150,8 +150,7 @@ public class TypecheckerTest {
         final List<Exp> callParams = new ArrayList<Exp>();
         callParams.add(new IntLiteralExp(5));
         
-        final Exp call =
-            new CallHigherOrderFunctionExp(function, callParams);
+        final Exp call = new CallLikeExp(function, callParams);
 
         assertExpHasType(new IntType(), call);
     }
@@ -226,12 +225,12 @@ public class TypecheckerTest {
     //     Nil(): Nil()
     //  }
     public static Exp consBody =
-        new MakeAlgebraicExp(new ConsName("Cons"),
-                             Arrays.asList(new CallHigherOrderFunctionExp(new VariableExp(new Variable("f")),
-                                                                          Arrays.asList(new VariableExp(new Variable("head")))),
-                                           new CallNamedFunctionExp(new FunctionName("map"),
-                                                                    Arrays.asList(new VariableExp(new Variable("tail")),
-                                                                                  new VariableExp(new Variable("f"))))));
+        new CallLikeExp(new VariableExp(new Variable("Cons")),
+                        Arrays.asList(new CallLikeExp(new VariableExp(new Variable("f")),
+                                                      Arrays.asList(new VariableExp(new Variable("head")))),
+                                      new CallLikeExp(new VariableExp(new Variable("map")),
+                                                      Arrays.asList(new VariableExp(new Variable("tail")),
+                                                                    new VariableExp(new Variable("f"))))));
     public static Exp mapFunctionDefBody =
         new MatchExp(new VariableExp(new Variable("list")),
                      Arrays.asList(new Case(new ConsName("Cons"),
@@ -240,8 +239,8 @@ public class TypecheckerTest {
                                             consBody),
                                    new Case(new ConsName("Nil"),
                                             new ArrayList<Variable>(),
-                                            new MakeAlgebraicExp(new ConsName("Nil"),
-                                                                 new ArrayList<Exp>()))));
+                                            new CallLikeExp(new VariableExp(new Variable("Nil")),
+                                                            new ArrayList<Exp>()))));
     
     public static FunctionDef mapFunctionDef =
         new FunctionDef(new FunctionName("map"),
@@ -266,20 +265,20 @@ public class TypecheckerTest {
     @Test
     public void testMapIntBool() throws TypeErrorException {
         final Exp makeList =
-            new MakeAlgebraicExp(new ConsName("Cons"),
-                                 Arrays.asList(new IntLiteralExp(1),
-                                               new MakeAlgebraicExp(new ConsName("Cons"),
-                                                                    Arrays.asList(new IntLiteralExp(2),
-                                                                                  new MakeAlgebraicExp(new ConsName("Nil"),
-                                                                                                       new ArrayList<Exp>())))));
+            new CallLikeExp(new VariableExp(new Variable("Cons")),
+                            Arrays.asList(new IntLiteralExp(1),
+                                          new CallLikeExp(new VariableExp(new Variable("Cons")),
+                                                          Arrays.asList(new IntLiteralExp(2),
+                                                                        new CallLikeExp(new VariableExp(new Variable("Nil")),
+                                                                                        new ArrayList<Exp>())))));
         final Exp function =
             new MakeHigherOrderFunctionExp(Arrays.asList(new Variable("x")),
                                            new OpExp(new VariableExp(new Variable("x")),
                                                      new LessThanOp(),
                                                      new IntLiteralExp(2)));
         final Exp call =
-            new CallNamedFunctionExp(new FunctionName("map"),
-                                     Arrays.asList(makeList, function));
+            new CallLikeExp(new VariableExp(new Variable("map")),
+                            Arrays.asList(makeList, function));
                                                    
         final Typechecker typechecker = new Typechecker(mapProgram);
 
@@ -297,20 +296,20 @@ public class TypecheckerTest {
     @Test
     public void testMapIntInt() throws TypeErrorException {
         final Exp makeList =
-            new MakeAlgebraicExp(new ConsName("Cons"),
-                                 Arrays.asList(new IntLiteralExp(1),
-                                               new MakeAlgebraicExp(new ConsName("Cons"),
-                                                                    Arrays.asList(new IntLiteralExp(2),
-                                                                                  new MakeAlgebraicExp(new ConsName("Nil"),
-                                                                                                       new ArrayList<Exp>())))));
+            new CallLikeExp(new VariableExp(new Variable("Cons")),
+                            Arrays.asList(new IntLiteralExp(1),
+                                          new CallLikeExp(new VariableExp(new Variable("Cons")),
+                                                          Arrays.asList(new IntLiteralExp(2),
+                                                                        new CallLikeExp(new VariableExp(new Variable("Nil")),
+                                                                                        new ArrayList<Exp>())))));
         final Exp function =
             new MakeHigherOrderFunctionExp(Arrays.asList(new Variable("x")),
                                            new OpExp(new VariableExp(new Variable("x")),
                                                      new PlusOp(),
                                                      new IntLiteralExp(1)));
         final Exp call =
-            new CallNamedFunctionExp(new FunctionName("map"),
-                                     Arrays.asList(makeList, function));
+            new CallLikeExp(new VariableExp(new Variable("map")),
+                            Arrays.asList(makeList, function));
                                                    
         final Typechecker typechecker = new Typechecker(mapProgram);
 

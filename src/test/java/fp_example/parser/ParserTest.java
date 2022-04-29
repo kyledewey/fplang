@@ -197,8 +197,8 @@ public class ParserTest {
     public void testParseCallNoParams() throws ParseException {
         // x()
         final ParseResult<Exp> expected =
-            new ParseResult<Exp>(new CallLike(new VariableExp(new Variable("x")),
-                                              new ArrayList<Exp>()),
+            new ParseResult<Exp>(new CallLikeExp(new VariableExp(new Variable("x")),
+                                                 new ArrayList<Exp>()),
                                  3);
         final ParseResult<Exp> received =
             mkParser(new IdentifierToken("x"),
@@ -211,8 +211,8 @@ public class ParserTest {
     public void testParseCallOneParam() throws ParseException {
         // x(1)
         final ParseResult<Exp> expected =
-            new ParseResult<Exp>(new CallLike(new VariableExp(new Variable("x")),
-                                              Arrays.asList(new IntLiteralExp(1))),
+            new ParseResult<Exp>(new CallLikeExp(new VariableExp(new Variable("x")),
+                                                 Arrays.asList(new IntLiteralExp(1))),
                                  4);
         final ParseResult<Exp> received =
             mkParser(new IdentifierToken("x"),
@@ -226,9 +226,9 @@ public class ParserTest {
     public void testParseCallTwoParams() throws ParseException {
         // x(1, 2)
         final ParseResult<Exp> expected =
-            new ParseResult<Exp>(new CallLike(new VariableExp(new Variable("x")),
-                                              Arrays.asList(new IntLiteralExp(1),
-                                                            new IntLiteralExp(2))),
+            new ParseResult<Exp>(new CallLikeExp(new VariableExp(new Variable("x")),
+                                                 Arrays.asList(new IntLiteralExp(1),
+                                                               new IntLiteralExp(2))),
                                  6);
         final ParseResult<Exp> received =
             mkParser(new IdentifierToken("x"),
@@ -244,10 +244,10 @@ public class ParserTest {
     public void testChainedCallNoParams() throws ParseException {
         // foo()()
         final Exp fooCall =
-            new CallLike(new VariableExp(new Variable("foo")),
-                         new ArrayList<Exp>());
+            new CallLikeExp(new VariableExp(new Variable("foo")),
+                            new ArrayList<Exp>());
         final Exp chainedCall =
-            new CallLike(fooCall, new ArrayList<Exp>());
+            new CallLikeExp(fooCall, new ArrayList<Exp>());
         final ParseResult<Exp> expected =
             new ParseResult<Exp>(chainedCall, 5);
         final ParseResult<Exp> received =
@@ -263,11 +263,11 @@ public class ParserTest {
     public void testChainedCallWithSingleParams() throws ParseException {
         // foo(1)(2)
         final Exp fooCall =
-            new CallLike(new VariableExp(new Variable("foo")),
-                         Arrays.asList(new IntLiteralExp(1)));
+            new CallLikeExp(new VariableExp(new Variable("foo")),
+                            Arrays.asList(new IntLiteralExp(1)));
         final Exp chainedCall =
-            new CallLike(fooCall,
-                         Arrays.asList(new IntLiteralExp(2)));
+            new CallLikeExp(fooCall,
+                            Arrays.asList(new IntLiteralExp(2)));
         final ParseResult<Exp> expected =
             new ParseResult<Exp>(chainedCall, 7);
         final ParseResult<Exp> received =
@@ -285,13 +285,13 @@ public class ParserTest {
     public void testChainedCallWithMultiParams() throws ParseException {
         // foo(1, x)(2, y)
         final Exp fooCall =
-            new CallLike(new VariableExp(new Variable("foo")),
-                         Arrays.asList(new IntLiteralExp(1),
-                                       new VariableExp(new Variable("x"))));
+            new CallLikeExp(new VariableExp(new Variable("foo")),
+                            Arrays.asList(new IntLiteralExp(1),
+                                          new VariableExp(new Variable("x"))));
         final Exp chainedCall =
-            new CallLike(fooCall,
-                         Arrays.asList(new IntLiteralExp(2),
-                                       new VariableExp(new Variable("y"))));
+            new CallLikeExp(fooCall,
+                            Arrays.asList(new IntLiteralExp(2),
+                                          new VariableExp(new Variable("y"))));
         final ParseResult<Exp> expected =
             new ParseResult<Exp>(chainedCall, 11);
         final ParseResult<Exp> received =

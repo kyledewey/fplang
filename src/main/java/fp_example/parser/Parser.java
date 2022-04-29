@@ -235,15 +235,6 @@ public class Parser {
         return new ParseResult<List<Exp>>(exps, position);
     }
 
-    // TODO:
-    // Remove the following classes:
-    // -CallHigherOrderFunctionExp
-    // -CallNamedFunctionExp
-    // -MakeAlgebraicExp
-    //
-    // These have all been replaced by CallLike.  The typechecker
-    // will need to disambiguate them.
-
     // call_exp ::= primary_exp (`(` comma_exps `)`)*
     public ParseResult<Exp> parseCallExp(final int position) throws ParseException {
         ParseResult<Exp> retval = parsePrimaryExp(position);
@@ -253,8 +244,8 @@ public class Parser {
                 assertTokenHereIs(retval.position, new LeftParenToken());
                 final ParseResult<List<Exp>> params = parseCommaExps(retval.position + 1);
                 assertTokenHereIs(params.position, new RightParenToken());
-                retval = new ParseResult<Exp>(new CallLike(retval.result,
-                                                           params.result),
+                retval = new ParseResult<Exp>(new CallLikeExp(retval.result,
+                                                              params.result),
                                               params.position + 1);
             } catch (final ParseException e) {
                 shouldRun = false;

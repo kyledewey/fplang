@@ -10,12 +10,12 @@ import java.util.List;
 // We cannot unambigiously differentiate these without type
 // information, so it's the responsibility of the typechecker
 // to figure this out.
-public class CallLike implements Exp {
+public class CallLikeExp implements Exp {
     public final Exp functionLike;
     public final List<Exp> params;
 
-    public CallLike(final Exp functionLike,
-                    final List<Exp> params) {
+    public CallLikeExp(final Exp functionLike,
+                       final List<Exp> params) {
         this.functionLike = functionLike;
         this.params = params;
     }
@@ -25,8 +25,8 @@ public class CallLike implements Exp {
     }
 
     public boolean equals(final Object other) {
-        if (other instanceof CallLike) {
-            final CallLike asCall = (CallLike)other;
+        if (other instanceof CallLikeExp) {
+            final CallLikeExp asCall = (CallLikeExp)other;
             return (functionLike.equals(asCall.functionLike) &&
                     params.equals(asCall.params));
         } else {
@@ -35,7 +35,7 @@ public class CallLike implements Exp {
     }
 
     public String toString() {
-        return ("CallLike(" + functionLike + ", " +
+        return ("CallLikeExp(" + functionLike + ", " +
                 params + ")");
     }
 }
