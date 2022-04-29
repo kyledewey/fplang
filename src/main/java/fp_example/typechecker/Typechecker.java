@@ -687,4 +687,8 @@ public class Typechecker {
                   new HashMap<Variable, TypeTerm>(),
                   new Unifier());
     }
+
+    public static void assertProgramTypechecks(final Program program) throws TypeErrorException {
+        new Typechecker(program).assertProgramTypechecks();
+    }
 }

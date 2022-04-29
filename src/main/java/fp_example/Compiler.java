@@ -7,7 +7,10 @@ import java.io.IOException;
 import fp_example.lexer.Tokenizer;
 import fp_example.lexer.TokenizerException;
 import fp_example.parser.Parser;
+import fp_example.parser.Program;
 import fp_example.parser.ParseException;
+import fp_example.typechecker.Typechecker;
+import fp_example.typechecker.TypeErrorException;
 
 public class Compiler {
     public static String fileContentsAsString(final String inputFilename) throws IOException {
@@ -24,7 +27,11 @@ public class Compiler {
     public static void main(final String[] args)
         throws IOException,
                TokenizerException,
-               ParseException {
-        System.out.println(Parser.parseProgram(Tokenizer.tokenize(fileContentsAsString(args[0]))));
+               ParseException,
+               TypeErrorException {
+        final Program program =
+            Parser.parseProgram(Tokenizer.tokenize(fileContentsAsString(args[0])));
+        Typechecker.assertProgramTypechecks(program);
+        System.out.println(program);
     }
 }
