@@ -397,5 +397,53 @@ public class ParserTest {
             LIST_PARSER.parseAlgDef(0);
         assertEquals(expected, received);
     }
+
+    @Test
+    public void testAlgebraicListTryParseMulti() throws ParseException {
+        final ParseResult<List<AlgDef>> expected =
+            new ParseResult<List<AlgDef>>(Arrays.asList(LIST_ALG_DEF), 20);
+        final ParseResult<List<AlgDef>> received =
+            LIST_PARSER.parseAlgDefs(0);
+        assertEquals(expected, received);
+    }
+
+    @Test
+    public void testParseNonGenericFunction() throws ParseException {
+        // def add[](x: int, y: int): int = x + y
+        final FunctionDef functionDef =
+            new FunctionDef(new FunctionName("add"),
+                            new ArrayList<Typevar>(),
+                            Arrays.asList(new Vardec(new Variable("x"),
+                                                     new IntType()),
+                                          new Vardec(new Variable("y"),
+                                                     new IntType())),
+                            new IntType(),
+                            new OpExp(new VariableExp(new Variable("x")),
+                                      new PlusOp(),
+                                      new VariableExp(new Variable("y"))));
+        final ParseResult<FunctionDef> expected =
+            new ParseResult<FunctionDef>(functionDef, 19);
+        final ParseResult<FunctionDef> received =
+            mkParser(new DefToken(),
+                     new IdentifierToken("add"),
+                     new LeftSquareBracketToken(),
+                     new RightSquareBracketToken(),
+                     new LeftParenToken(),
+                     new IdentifierToken("x"),
+                     new ColonToken(),
+                     new IntToken(),
+                     new CommaToken(),
+                     new IdentifierToken("y"),
+                     new ColonToken(),
+                     new IntToken(),
+                     new RightParenToken(),
+                     new ColonToken(),
+                     new IntToken(),
+                     new SingleEqualsToken(),
+                     new IdentifierToken("x"),
+                     new PlusToken(),
+                     new IdentifierToken("y")).parseFunctionDef(0);
+        assertEquals(expected, received);
+    }
 }
 

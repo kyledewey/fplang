@@ -412,7 +412,7 @@ public class Parser {
             while (shouldRun) {
                 try {
                     assertTokenHereIs(position, new CommaToken());
-                    current = parseVardec(position);
+                    current = parseVardec(position + 1);
                     vardecs.add(current.result);
                     position = current.position;
                 } catch (final ParseException e) {
