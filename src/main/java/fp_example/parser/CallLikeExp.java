@@ -14,6 +14,9 @@ public class CallLikeExp implements Exp {
     public final Exp functionLike;
     public final List<Exp> params;
 
+    // filled in by the typechecker
+    public CallLikeResolved resolution = null;
+    
     public CallLikeExp(final Exp functionLike,
                        final List<Exp> params) {
         this.functionLike = functionLike;

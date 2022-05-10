@@ -192,16 +192,19 @@ public class Typechecker {
             final FunctionName nameAsFunctionName = new FunctionName(nameAsVariable.name);
             final ConsName nameAsConsName = new ConsName(nameAsVariable.name);
             if (typeEnvironment.containsKey(nameAsVariable)) {
+                exp.resolution = new HOFResolved();
                 return typeofCallHOF(exp.functionLike,
                                      exp.params,
                                      typeEnvironment,
                                      unifier);
             } else if (funcNameToFuncDef.containsKey(nameAsFunctionName)) {
+                exp.resolution = new NamedFunctionResolved(nameAsFunctionName);
                 return typeofCallNamed(nameAsFunctionName,
                                        exp.params,
                                        typeEnvironment,
                                        unifier);
             } else if (consNameToAlgDef.containsKey(nameAsConsName)) {
+                exp.resolution = new MakeAlgebraicResolved(nameAsConsName);
                 return typeofMakeAlgebraic(nameAsConsName,
                                            exp.params,
                                            typeEnvironment,
@@ -212,6 +215,7 @@ public class Typechecker {
         } else {
             // if it's an arbitrary expression, syntactically it has
             // to be a higher-order function call
+            exp.resolution = new HOFResolved();
             return typeofCallHOF(exp.functionLike,
                                  exp.params,
                                  typeEnvironment,
