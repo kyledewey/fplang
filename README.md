@@ -111,3 +111,32 @@ def map[A, B](list: List[A], f: (A) => B): List[B] =
     Nil(): Nil()
   }
 ```
+
+# Code Generation
+
+- For each algebraic data type, each constructor is given a unique number
+- Each expression translates into:
+    - A sequence of javascript statements
+    - A variable holding the result of the statements
+- Given that expressions become a mix of statements and expressions, we'll need to introduce temporary variables along the way
+- Higher-order functions are represented with JS objects holding a reference to the function, as well as the closure environment.
+
+```
+(x*) => exp
+```
+
+...becomes:
+
+```javascript
+function __temp_function_0(closure, x*) {
+  let closed_over_variable1 = closure.closed_over_variable1;
+  let closed_over_variable2 = closure.closed_over_variable2;
+  return exp;
+}
+```
+
+# Running the Compiler
+
+```
+mvn exec:java -Dexec.mainClass="fp_example.Compiler" -Dexec.args="tests/list_length.fp output.js"
+```
