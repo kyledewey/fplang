@@ -52,12 +52,13 @@ public class Scope {
     }
 
     public Scope joinFromNestedScope(final Scope fromFunction) {
-        // we only have variables available from the outer scope
-        // however, anything the inner function closed over must now be
-        // closed over by the outer function, too
+        // Only variables in the outer scope are available.
+        // We don't need to close over anything that's available in our scope,
+        // but we do need to close over everything else.
         final Set<Variable> newMustCloseOver = new HashSet<Variable>();
-        newMustCloseOver.addAll(mustCloseOver);
         newMustCloseOver.addAll(fromFunction.mustCloseOver);
+        newMustCloseOver.removeAll(immediatelyAvailable);
+        newMustCloseOver.addAll(mustCloseOver);
         return new Scope(immediatelyAvailable, newMustCloseOver);
     }
     
