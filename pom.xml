@@ -1,11 +1,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>fp_example</groupId>
-  <artifactId>fp_example</artifactId>
+  <groupId>fplang</groupId>
+  <artifactId>fplang</artifactId>
   <packaging>jar</packaging>
   <version>1.0-SNAPSHOT</version>
-  <name>fp_example</name>
+  <name>fplang</name>
   <url>http://maven.apache.org</url>
   <dependencies>
     <dependency>
@@ -20,7 +20,7 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.7</version>
+        <version>0.8.8</version>
         <executions>
           <execution>
             <goals>
@@ -39,8 +39,7 @@
     </plugins>
   </build>
   <properties>
-    <java.version>1.8</java.version>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.source>1.10</maven.compiler.source>
+    <maven.compiler.target>1.10</maven.compiler.target>
   </properties>
 </project>
