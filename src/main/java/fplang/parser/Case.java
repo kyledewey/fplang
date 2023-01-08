@@ -3,29 +3,24 @@ package fplang.parser;
 import java.util.List;
 
 public class Case {
-    public final ConsName consName;
-    public final List<Variable> variables;
+    public final Pattern pattern;
     public final Exp body;
 
-    public Case(final ConsName consName,
-                final List<Variable> variables,
+    public Case(final Pattern pattern,
                 final Exp body) {
-        this.consName = consName;
-        this.variables = variables;
+        this.pattern = pattern;
         this.body = body;
     }
 
     public int hashCode() {
-        return (consName.hashCode() +
-                variables.hashCode() +
+        return (pattern.hashCode() +
                 body.hashCode());
     }
 
     public boolean equals(final Object other) {
         if (other instanceof Case) {
             final Case asCase = (Case)other;
-            return (consName.equals(asCase.consName) &&
-                    variables.equals(asCase.variables) &&
+            return (pattern.equals(asCase.pattern) &&
                     body.equals(asCase.body));
         } else {
             return false;
@@ -33,8 +28,8 @@ public class Case {
     }
 
     public String toString() {
-        return ("Case(" + consName.toString() + ", " +
-                variables.toString() + ", " +
+        return ("Case(" +
+                pattern.toString() + ", " +
                 body.toString() + ")");
     }
 }

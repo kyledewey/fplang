@@ -44,6 +44,7 @@ public class Tokenizer {
         SYMBOLS.add(new Symbol(",", new CommaToken()));
         SYMBOLS.add(new Symbol(":", new ColonToken()));
         SYMBOLS.add(new Symbol("|", new PipeToken()));
+        SYMBOLS.add(new Symbol("_", new UnderscoreToken()));
     }
     
     public final String input;

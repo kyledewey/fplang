@@ -101,6 +101,14 @@ public class Typechecker {
         retval.put(variable, type);
         return retval;
     }
+
+    public static Map<Variable, TypeTerm> addVarsInScope(final Map<Variable, TypeTerm> typeEnvironment,
+                                                         final Map<Variable, TypeTerm> toAdd) {
+        final Map<Variable, TypeTerm> retval = new HashMap<Variable, TypeTerm>();
+        retval.putAll(typeEnvironment);
+        retval.putAll(toAdd);
+        return retval;
+    }
     
     public TypeTerm typeofVariableExp(final VariableExp exp,
                                       final Map<Variable, TypeTerm> typeEnvironment)
@@ -437,149 +445,126 @@ public class Typechecker {
         return trueType;
     }
 
-    public static void assertCasesExhaustiveAndNonRedundant(final AlgDef algDef,
-                                                            final List<Case> cases) throws TypeErrorException {
-        final Set<ConsName> casesHandled = new HashSet<ConsName>();
-        // check for redundant cases
-        for (final Case theCase : cases) {
-            final ConsName consName = theCase.consName;
-            if (casesHandled.contains(consName)) {
-                throw new TypeErrorException("Duplicate case for: " + consName);
+    public MatchValue patternToMatchValue(final Pattern pattern) throws TypeErrorException {
+        if (pattern instanceof UnderscorePattern ||
+            pattern instanceof VariablePattern) {
+            return new MatchAll();
+        } else if (pattern instanceof ConsPattern) {
+            final ConsPattern consPattern = (ConsPattern)pattern;
+            final List<MatchValue> subMatches = new ArrayList<MatchValue>();
+            for (final Pattern subPattern : consPattern.patterns) {
+                subMatches.add(patternToMatchValue(subPattern));
             }
-            casesHandled.add(consName);
-        }
-
-        // make sure there is a case for all constructors
-        for (final ConsDef consDef : algDef.constructors) {
-            final ConsName consName = consDef.consName;
-            if (!casesHandled.contains(consName)) {
-                throw new TypeErrorException("Missing case for: " + consName);
-            }
+            final Map<ConsName, List<MatchValue>> map = new HashMap<ConsName, List<MatchValue>>();
+            map.put(consPattern.consName, subMatches);
+            return new MatchSome(algDefForConstructorName(consPattern.consName).algName,
+                                 map);
+        } else {
+            throw new TypeErrorException("Unknown pattern: " + pattern.toString());
         }
     }
-    
-    // Look at the cases, and try to determine which algebraic data type we
-    // are matching against.  Throws an exception if:
-    // 1. The cases are inconsistent with each other (i.e., they refer to different
-    //    algebraic data types)
-    // 2. There is a missing case
-    // 3. There is a duplicate case
-    public AlgDef algDefForCases(final List<Case> cases) throws TypeErrorException {
-        AlgDef retval = null;
-        for (final Case theCase : cases) {
-            final AlgDef candidate = algDefForConstructorName(theCase.consName);
-            if (retval == null) {
-                retval = candidate;
-            } else if (retval != candidate) {
-                throw new TypeErrorException("Inconsistent patterns used in pattern match");
-            }
-        }
 
+    public void exhaustivityCheck(final List<Case> cases,
+                                  final Set<ConsName> constructors) throws TypeErrorException {
+        MatchValue curValue = new MatchNone();
+        for (final Case theCase : cases) {
+            if (curValue.isMatchAll()) {
+                throw new TypeErrorException("Unreachable case: " + theCase.toString());
+            }
+            curValue = curValue.join(patternToMatchValue(theCase.pattern),
+                                     constructors);
+        }
+        if (!curValue.isMatchAll()) {
+            throw new TypeErrorException("Non-exhaustive pattern match: " + curValue.toString());
+        }
+    }
+
+    public AlgDef getAlgDef(final AlgName algName) throws TypeErrorException {
+        final AlgDef retval = algNameToAlgDef.get(algName);
         if (retval == null) {
-            throw new TypeErrorException("Pattern match with no cases");
+            throw new TypeErrorException("No such algdef with name: " + algName.toString());
+        } else {
+            return retval;
         }
-
-        assertCasesExhaustiveAndNonRedundant(retval, cases);
-
-        return retval;
-    }
-
-    // List[Placeholder(0)]
-    //
-    // Give back the expected type for the given cases.
-    // Uses "Template" because this expected type will have placeholders in it; this
-    // needs to be unified with the actual discriminant's type to fill these in.
-    public AlgebraicTypeTerm discriminantTypeTemplate(final List<Case> cases) throws TypeErrorException {
-        final AlgDef algDef = algDefForCases(cases);
-        final List<TypeTerm> typeTerms = new ArrayList<TypeTerm>();
-        final int numTypeTerms = algDef.typevars.size();
-        for (int count = 0; count < numTypeTerms; count++) {
-            typeTerms.add(new PlaceholderTypeTerm());
-        }
-        return new AlgebraicTypeTerm(algDef.algName, typeTerms);
-    }
-
-    // discriminant type: List[Placeholder(0)]
-    // case: Cons(head, tail)
-    // definition: List[A] = Cons(A, List[A]) | Nil
-    // head: Placeholder(0)
-    // tail: List[Placeholder(0)]
-    public TypeTerm typeofMatchCase(final Case theCase,
-                                    final AlgebraicTypeTerm discriminantType,
-                                    Map<Variable, TypeTerm> typeEnvironment,
-                                    final Unifier unifier) throws TypeErrorException {
-        // Basic idea: put the variables in scope, and typecheck the body
-        // the type of the body is the type of the case overall.
-        //
-        // The types of the variables is determined by looking at the declared
-        // types for the corresponding case.  Generics complicate this a bit.
-        //
-        // type List[A] = Cons(A, List[A]) | Nil
-        // val list: List[Int] = Cons(1, Cons(2, Nil))
-        // list match {
-        //   case Cons(head, tail) =>
-        //     // head: Int
-        //     // tail: List[Int]
-        //
-        final ConstructorTypeSubstitution substitution =
-            typeSubstitutionForConstructor(theCase.consName);
-        // From prior checks, we know this case belongs to
-        // this algebraic data type.  The case itself has the same
-        // type as the discriminant type.
-        final AlgebraicTypeTerm caseType =
-            new AlgebraicTypeTerm(discriminantType.algName,
-                                  substitution.generics);
-
-        // discriminantType: List[int]
-        // caseType: List[Placeholder(0)]
-        // substitution.params: List(Placeholder(0), List[Placeholder(0)])
-        // substitution.generics: List(Placeholder(0))
-        //
-        // Unify this against the discriminant type.  This will instantiate
-        // any placeholders in the constructor.
-        unifier.unify(discriminantType, caseType);
-
-        // Now the parameters in the case should be instantiated with
-        // the appropriate types.  We can instantiate our variables
-        // with these types.
-        final Iterator<TypeTerm> params = substitution.params.iterator();
-        final Iterator<Variable> variables = theCase.variables.iterator();
-        while (params.hasNext() && variables.hasNext()) {
-            typeEnvironment = addVarInScope(typeEnvironment,
-                                            variables.next(),
-                                            params.next());
-        }
-
-        if (params.hasNext() || variables.hasNext()) {
-            throw new TypeErrorException("Wrong number of parameters in match case");
-        }
-        
-        return typeofExp(theCase.body, typeEnvironment, unifier);
     }
     
+    public Set<ConsName> expectedConstructors(TypeTerm type,
+                                              final Unifier unifier) throws TypeErrorException {
+        type = unifier.transitiveSetRepresentativeFor(type);
+        if (type instanceof AlgebraicTypeTerm) {
+            final Set<ConsName> constructors = new HashSet<ConsName>();
+            for (final ConsDef consDef : getAlgDef(((AlgebraicTypeTerm)type).algName).constructors) {
+                constructors.add(consDef.consName);
+            }
+            return constructors;
+        } else {
+            throw new TypeErrorException("Algebraic type expected; received: " + type.toString());
+        }
+    }
+    
+    // newVarsFromPattern holds the variables this pattern introduces, and is
+    // mutated directly.  We intentionally don't modify typeEnvironment (yet),
+    // as all these variables are added at the same scope level, so this allows
+    // us to make sure everything is unique at this scope level
+    public TypeTerm typeofPattern(final Pattern pattern,
+                                  final Map<Variable, TypeTerm> newVarsFromPattern,
+                                  final Map<Variable, TypeTerm> typeEnvironment,
+                                  final Unifier unifier) throws TypeErrorException {
+        if (pattern instanceof UnderscorePattern) {
+            return new PlaceholderTypeTerm();
+        } else if (pattern instanceof VariablePattern) {
+            final TypeTerm retval = new PlaceholderTypeTerm();
+            final Variable variable = ((VariablePattern)pattern).variable;
+            if (newVarsFromPattern.containsKey(variable)) {
+                throw new TypeErrorException("Duplicate variable name in pattern: " + variable.toString());
+            } else {
+                newVarsFromPattern.put(((VariablePattern)pattern).variable, retval);
+                return retval;
+            }
+        } else if (pattern instanceof ConsPattern) {
+            final ConsPattern asCons = (ConsPattern)pattern;
+            final ConstructorTypeSubstitution sub = typeSubstitutionForConstructor(asCons.consName);
+            final Iterator<TypeTerm> expectedTypes = sub.params.iterator();
+            final Iterator<Pattern> subPatterns = asCons.patterns.iterator();
+            while (expectedTypes.hasNext() && subPatterns.hasNext()) {
+                unifier.unify(expectedTypes.next(),
+                              typeofPattern(subPatterns.next(),
+                                            newVarsFromPattern,
+                                            typeEnvironment,
+                                            unifier));
+            }
+                
+            return new AlgebraicTypeTerm(sub.algName, sub.generics);
+        } else {
+            throw new TypeErrorException("Unrecognized pattern: " + pattern.toString());
+        }
+    }
+
     public TypeTerm typeofMatchExp(final MatchExp exp,
                                    final Map<Variable, TypeTerm> typeEnvironment,
                                    final Unifier unifier) throws TypeErrorException {
-        final AlgebraicTypeTerm expectedDiscriminantType =
-            discriminantTypeTemplate(exp.cases);
-        final TypeTerm actualDiscriminantType = typeofExp(exp.exp,
-                                                          typeEnvironment,
-                                                          unifier);
-        unifier.unify(expectedDiscriminantType, actualDiscriminantType);
-
-        // Now handle each case.  Each should have the same return type.
-        final TypeTerm returnType = new PlaceholderTypeTerm();
+        final TypeTerm discriminantType = typeofExp(exp.exp,
+                                                    typeEnvironment,
+                                                    unifier);
+        final TypeTerm retval = new PlaceholderTypeTerm();
         for (final Case theCase : exp.cases) {
-            final TypeTerm caseType = typeofMatchCase(theCase,
-                                                      expectedDiscriminantType,
-                                                      typeEnvironment,
-                                                      unifier);
-            unifier.unify(returnType, caseType);
+            final Map<Variable, TypeTerm> newVarsFromPattern = new HashMap<Variable, TypeTerm>();
+            final TypeTerm patternType = typeofPattern(theCase.pattern,
+                                                       newVarsFromPattern,
+                                                       typeEnvironment,
+                                                       unifier);
+            unifier.unify(discriminantType, patternType);
+            unifier.unify(retval, typeofExp(theCase.body,
+                                            addVarsInScope(typeEnvironment,
+                                                           newVarsFromPattern),
+                                            unifier));
         }
-
-        return returnType;
+        exhaustivityCheck(exp.cases,
+                          expectedConstructors(discriminantType,
+                                               unifier));
+        return retval;
     }
-        
+    
     public TypeTerm typeofPrintlnExp(final PrintlnExp exp,
                                      final Map<Variable, TypeTerm> typeEnvironment,
                                      final Unifier unifier) throws TypeErrorException {

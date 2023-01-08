@@ -13,25 +13,27 @@ Assumptions:
 - `void` is a special value (Scala/Swift semantics)
 
 ```
-x is a variable
+var is a variable
 i is an integer
 typevar is a type variable
 functionname is a function name
 algname is the name of an algebraic data type
 consname is the name of a constructor
-type ::= int | bool | void | typevar | (type*) => type | algname[type*]
-op ::= + | < | ==
-exp ::= i | x | true | false | exp op exp |
-        let x = exp in exp |
-        (x*) => exp | exp(exp*) | functionname(exp*) |
-        if (exp) exp else exp |  // (exp) ? exp : exp
-        consname(exp*) | match exp { case+ } |
-        println(exp) | { exp+ } // semicolon-separated expressions, returns last one
-case ::= consname(x*): exp
-vardec ::= x: type
-consdef ::= consname(type*)
-algdef ::= `type` algname[typevar*] = consdef+ `;`
-functiondef ::= def functionname[typevar*](vardec*): type = exp `;`
+type ::= `int` | `bool` | `void` | typevar |
+        `(` type* `)` `=>` type | algname `[` type* `]`
+op ::= `+` | `<` | `==`
+exp ::= i | var | `true` | `false` | exp op exp |
+        `let` var `=` exp `in` exp |
+        `(` x* `)` `=>` exp | exp `(` exp* `)` | functionname `(` exp* `)` |
+        `if` `(` exp `)` exp `else` exp |  // (exp) ? exp : exp
+        consname `(` exp* `)` | `match` exp `{` case+ `}` |
+        `println` `(` exp `)` | `{` exp+ `}` // semicolon-separated expressions, returns last one
+pattern ::= `_` | var | consname `(` pattern* `)`
+case ::= `case` pattern `:` exp
+vardec ::= x `:` type
+consdef ::= consname `(` type* `)`
+algdef ::= `type` algname `[` typevar* `]` `=` consdef+ `;`
+functiondef ::= `def` functionname `[` typevar* `]` `(` vardec* `)` `:` type `=` exp `;`
 program ::= algdef* functiondef* exp // exp is the entry point
 ```
 
@@ -39,7 +41,8 @@ Refactored grammar:
 ```
 id is an identifier
 i is an integer
-type ::= `int` | `bool` | `void` | id | `(` comma_types `)` `=>` type | id `[` comma_types `]`
+type ::= `int` | `bool` | `void` | id |
+         `(` comma_types `)` `=>` type | id `[` comma_types `]`
 primary_exp ::= i | id | `true` | `false` |
                 `let` x `=` exp `in` exp |
                 `if` `(` exp `)` exp `else` exp |
@@ -50,15 +53,17 @@ call_exp ::= primary_exp (`(` comma_exps `)`)*
 additive_exp ::= call_exp (`+` call_exp)*
 less_than_exp ::= additive_exp (`<` additive_exp)*
 equals_exp ::= less_than_exp (`==` less_than_exp)*
-exp ::= make_function_exp | equals_exp
-make_function_exp ::= `(` comma_ids `)` `=>` exp
+function_exp ::= (`(` comma_ids `)` `=>`)* equals_exp
+exp ::= function_exp
 semicolon_exps ::= exp `;` (exp `;`)*
 comma_exps ::= [exp (`,` exp)*]
 comma_ids ::= [id (`,` id)*]
 comma_types ::= [type (`,` type)*]
 vardec ::= id `:` type
 comma_vardecs ::= [vardec (`,` vardec)*]
-case ::= `case` id `(` comma_ids `)` `:` exp
+pattern ::= `_` | id | id `(` comma_pattern `)`
+comma_pattern ::= [pattern (`,` pattern)*]
+case ::= `case` pattern `:` exp
 consdef ::= id `(` comma_types `)`
 pipe_consdefs ::= consdef (`|` consdef)*
 algdef ::= `type` id `[` comma_ids `]` `=` pipe_consdefs `;`

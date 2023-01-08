@@ -2,6 +2,7 @@ package fplang.parser;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Collections;
 
 import fplang.lexer.*;
 
@@ -317,13 +318,9 @@ public class Parser {
         return retval;
     }
 
-    // exp ::= make_function_exp | equals_exp
+    // exp ::= function_exp
     public ParseResult<Exp> parseExp(final int position) throws ParseException {
-        try {
-            return parseMakeFunctionExp(position);
-        } catch (final ParseException e) {
-            return parseEqualsExp(position);
-        }
+        return parseFunctionExp(position);
     }
 
     // comma_ids ::= [id (`,` id)*]
@@ -367,19 +364,34 @@ public class Parser {
         }
         return new ParseResult<List<Typevar>>(retval, ids.position);
     }
-    
-    // make_function_exp ::= `(` comma_ids `)` `=>` exp
-    public ParseResult<Exp> parseMakeFunctionExp(final int position) throws ParseException {
-        assertTokenHereIs(position, new LeftParenToken());
-        final ParseResult<List<Variable>> params = parseCommaVariables(position + 1);
-        assertTokenHereIs(params.position, new RightParenToken());
-        assertTokenHereIs(params.position + 1, new ArrowToken());
-        final ParseResult<Exp> body = parseExp(params.position + 2);
-        return new ParseResult<Exp>(new MakeHigherOrderFunctionExp(params.result,
-                                                                   body.result),
-                                    body.position);
-    }
 
+    // function_exp ::= (`(` comma_ids `)` `=>`)* equals_exp
+    public ParseResult<Exp> parseFunctionExp(int position) throws ParseException {
+        final List<List<Variable>> allParams = new ArrayList<List<Variable>>();
+        
+        boolean shouldRun = true;
+        while (shouldRun) {
+            try {
+                assertTokenHereIs(position, new LeftParenToken());
+                final ParseResult<List<Variable>> curParams = parseCommaVariables(position + 1);
+                assertTokenHereIs(curParams.position, new RightParenToken());
+                assertTokenHereIs(curParams.position + 1, new ArrowToken());
+                position = curParams.position + 2;
+                allParams.add(curParams.result);
+            } catch (final ParseException e) {
+                shouldRun = false;
+            }
+        }
+        final ParseResult<Exp> rightExp = parseEqualsExp(position);
+        position = rightExp.position;
+        Exp retval = rightExp.result;
+        Collections.reverse(allParams);
+        for (final List<Variable> curParams : allParams) {
+            retval = new MakeHigherOrderFunctionExp(curParams, retval);
+        }
+        return new ParseResult<Exp>(retval, position);
+    }
+    
     // vardec ::= id `:` type
     public ParseResult<Vardec> parseVardec(final int position) throws ParseException {
         final ParseResult<Variable> variable = parseVariable(position);
@@ -415,17 +427,59 @@ public class Parser {
         return new ParseResult<List<Vardec>>(vardecs, position);
     }
 
-    // case ::= `case` id `(` comma_ids `)` `:` exp
+    // comma_pattern ::= [pattern (`,` pattern)*]
+    public ParseResult<List<Pattern>> parseCommaPattern(int position) throws ParseException {
+        List<Pattern> retval = new ArrayList<Pattern>();
+
+        try {
+            final ParseResult<Pattern> start = parsePattern(position);
+            retval.add(start.result);
+            position = start.position;
+            boolean shouldRun = false;
+            while (shouldRun) {
+                try {
+                    assertTokenHereIs(position, new CommaToken());
+                    final ParseResult<Pattern> curPattern = parsePattern(position + 1);
+                    retval.add(curPattern.result);
+                    position = curPattern.position;
+                } catch (final ParseException e) {
+                    shouldRun = false;
+                }
+            }
+        } catch (final ParseException e) {}
+
+        return new ParseResult<List<Pattern>>(retval, position);
+    }
+    
+    // pattern ::= `_` | id | id `(` comma_pattern `)`
+    public ParseResult<Pattern> parsePattern(final int position) throws ParseException {
+        final Token token = getToken(position);
+        if (token instanceof UnderscoreToken) {
+            return new ParseResult<Pattern>(new UnderscorePattern(), position + 1);
+        } else if (token instanceof IdentifierToken) {
+            final String name = ((IdentifierToken)token).identifier;
+            try {
+                assertTokenHereIs(position + 1, new LeftParenToken());
+                final ParseResult<List<Pattern>> patterns = parseCommaPattern(position + 2);
+                assertTokenHereIs(patterns.position, new RightParenToken());
+                return new ParseResult<Pattern>(new ConsPattern(new ConsName(name), patterns.result),
+                                                patterns.position + 1);
+            } catch (final ParseException e) {
+                return new ParseResult<Pattern>(new VariablePattern(new Variable(name)),
+                                                position + 1);
+            }
+        } else {
+            throw new ParseException("Expected pattern; received: " + token.toString());
+        }
+    } // parsePattern
+
+    // case ::= `case` pattern `:` exp
     public ParseResult<Case> parseCase(final int position) throws ParseException {
         assertTokenHereIs(position, new CaseToken());
-        final ParseResult<ConsName> consName = parseConsName(position + 1);
-        assertTokenHereIs(consName.position, new LeftParenToken());
-        final ParseResult<List<Variable>> variables = parseCommaVariables(consName.position + 1);
-        assertTokenHereIs(variables.position, new RightParenToken());
-        assertTokenHereIs(variables.position + 1, new ColonToken());
-        final ParseResult<Exp> body = parseExp(variables.position + 2);
-        return new ParseResult<Case>(new Case(consName.result,
-                                              variables.result,
+        final ParseResult<Pattern> pattern = parsePattern(position + 1);
+        assertTokenHereIs(pattern.position, new ColonToken());
+        final ParseResult<Exp> body = parseExp(pattern.position + 1);
+        return new ParseResult<Case>(new Case(pattern.result,
                                               body.result),
                                      body.position);
     }
