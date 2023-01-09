@@ -435,7 +435,7 @@ public class Parser {
             final ParseResult<Pattern> start = parsePattern(position);
             retval.add(start.result);
             position = start.position;
-            boolean shouldRun = false;
+            boolean shouldRun = true;
             while (shouldRun) {
                 try {
                     assertTokenHereIs(position, new CommaToken());
