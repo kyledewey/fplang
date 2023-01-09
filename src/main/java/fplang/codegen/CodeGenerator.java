@@ -292,50 +292,6 @@ public class CodeGenerator {
             return new TranslationResult<Variable>(result.result, ifFalse.scope);
         }
 
-        // public TranslationResult<Class<Void>> translateCase(final Variable discriminator,
-        //                                                     final Variable matchResult,
-        //                                                     final Case theCase,
-        //                                                     final Scope initialScope)
-        //     throws CodeGeneratorException {
-        //     final Integer id = constructors.get(theCase.consName);
-        //     if (id == null) {
-        //         throw new CodeGeneratorException("Typechecker missed unknown case in pattern match");
-        //     }
-        //     addLine("case " + id.intValue() + ": {");
-        //     int index = 0;
-        //     Scope scope = initialScope;
-        //     for (final Variable variable : theCase.variables) {
-        //         scope = vardec(scope, variable, discriminator.name + "._" + (index++)).scope;
-        //     }
-        //     final TranslationResult<Variable> bodyResult = translateExp(theCase.body, scope);
-        //     addLine(matchResult.name + " = " + bodyResult.result.name + ";");
-        //     addLine("break;");
-        //     addLine("}");
-        //     return new TranslationResult<Class<Void>>(Void.TYPE,
-        //                                               initialScope.joinFromNestedScope(bodyResult.scope));
-        // }        
-        
-        // match exp { ... }
-        //
-        // let temp0 = undefined;
-        // switch (...) { case ...: temp0 = ...; }
-        // public TranslationResult<Variable> translateMatchExp(final MatchExp exp, final Scope initialScope)
-        //     throws CodeGeneratorException {
-        //     final TranslationResult<Variable> result = tempVariableVardec(initialScope, "undefined");
-        //     final TranslationResult<Variable> discriminator = translateExp(exp.exp, result.scope);
-        //     addLine("switch (" + discriminator.result.name + ".id) {");
-        //     Scope scope = discriminator.scope;
-        //     for (final Case theCase : exp.cases) {
-        //         scope = translateCase(discriminator.result,
-        //                               result.result,
-        //                               theCase,
-        //                               scope).scope;
-        //     }
-        //     addLine("}");
-        //     return new TranslationResult<Variable>(result.result, scope);
-        // }
-
-        // ---BEGIN EVERYTHING FOR NEW MATCH---
         public void patternToBooleanExp(final String base,
                                         final Pattern pattern,
                                         final StringBuffer buffer,
@@ -355,6 +311,7 @@ public class CodeGenerator {
                                         subPattern,
                                         buffer,
                                         false);
+                    patternNum++;
                 }
             } else if (!(pattern instanceof UnderscorePattern ||
                          pattern instanceof VariablePattern)) {
@@ -390,6 +347,7 @@ public class CodeGenerator {
                     scope = introducePatternVariables(base + "._" + patternNum,
                                                       subPattern,
                                                       scope).scope;
+                    patternNum++;
                 }
             } else if (!(pattern instanceof UnderscorePattern)) {
                 throw new CodeGeneratorException("Unrecognized pattern: " + pattern.toString());
@@ -403,7 +361,7 @@ public class CodeGenerator {
                                                             final Scope initialScope,
                                                             final boolean firstCase)
             throws CodeGeneratorException {
-            final String header = (firstCase) ? "if (" : "} else if (";
+            final String header = (firstCase) ? "if (" : " else if (";
             final String condition = patternToBooleanExp(discriminant.name, theCase.pattern);
             addLine(header + condition + ") {");
             final Scope innerScope = introducePatternVariables(discriminant.name,
@@ -429,7 +387,7 @@ public class CodeGenerator {
         // 
         public TranslationResult<Variable> translateMatchExp(final MatchExp exp, final Scope initialScope)
             throws CodeGeneratorException {
-            final TranslationResult<Variable> discriminant = translateExp(exp, initialScope);
+            final TranslationResult<Variable> discriminant = translateExp(exp.exp, initialScope);
             final TranslationResult<Variable> result = tempVariableVardec(discriminant.scope, "undefined");
             Scope scope = result.scope;
             boolean firstCase = true;
@@ -445,7 +403,6 @@ public class CodeGenerator {
             }
             return new TranslationResult<Variable>(result.result, scope);
         }                
-        // ---END EVERYTHING FOR NEW MATCH---
         
         public TranslationResult<Variable> translatePrintlnExp(final PrintlnExp exp, final Scope scope)
             throws CodeGeneratorException {
