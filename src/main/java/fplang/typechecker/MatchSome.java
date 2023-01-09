@@ -22,7 +22,8 @@ public class MatchSome implements MatchValue {
 
     public static List<MatchValue> joinLists(final List<MatchValue> list1,
                                              final List<MatchValue> list2,
-                                             final Set<ConsName> expectedConstructors) {
+                                             final Set<ConsName> expectedConstructors)
+        throws TypeErrorException {
         final List<MatchValue> retval = new ArrayList<MatchValue>();
         final Iterator<MatchValue> list1Iterator = list1.iterator();
         final Iterator<MatchValue> list2Iterator = list2.iterator();
@@ -55,7 +56,8 @@ public class MatchSome implements MatchValue {
                 
     public static Map<ConsName, List<MatchValue>> joinMaps(final Map<ConsName, List<MatchValue>> map1,
                                                            final Map<ConsName, List<MatchValue>> map2,
-                                                           final Set<ConsName> expectedConstructors) {
+                                                           final Set<ConsName> expectedConstructors)
+        throws TypeErrorException {
         // for any constructor that's in both, those lists need to be joined
         // otherwise, we just include it in the result
         final Map<ConsName, List<MatchValue>> retval = new HashMap<ConsName, List<MatchValue>>();

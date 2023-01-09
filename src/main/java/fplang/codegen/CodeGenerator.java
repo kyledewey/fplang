@@ -198,6 +198,16 @@ public class CodeGenerator {
                                       closure.toString());
         }
 
+        public int constructorId(final ConsName consName) throws CodeGeneratorException {
+            final Integer retval = constructors.get(consName);
+            if (retval == null) {
+                throw new CodeGeneratorException("Typechecker failed to catch undefined constructor name: " +
+                                                 consName.name);
+            } else {
+                return retval.intValue();
+            }
+        }
+        
         public TranslationResult<Variable> translateCallLikeExp(final CallLikeExp exp,
                                                                 final Scope scope)
             throws CodeGeneratorException {
@@ -235,12 +245,7 @@ public class CodeGenerator {
             } else if (exp.resolution instanceof MakeAlgebraicResolved) {
                 final StringBuilder obj = new StringBuilder("{ 'id': ");
                 final ConsName consName = ((MakeAlgebraicResolved)exp.resolution).consName;
-                final Integer id = constructors.get(consName);
-                if (id == null) {
-                    throw new CodeGeneratorException("Typechecker failed to catch undefined constructor name: " +
-                                                     consName.name);
-                }
-                obj.append(id.intValue());
+                obj.append(constructorId(consName));
                 final TranslationResult<List<Variable>> params = translateExps(exp.params, scope);
                 int paramId = 0;
                 for (final Variable param : params.result) {
@@ -287,49 +292,161 @@ public class CodeGenerator {
             return new TranslationResult<Variable>(result.result, ifFalse.scope);
         }
 
-        public TranslationResult<Class<Void>> translateCase(final Variable discriminator,
-                                                            final Variable matchResult,
-                                                            final Case theCase,
-                                                            final Scope initialScope)
-            throws CodeGeneratorException {
-            final Integer id = constructors.get(theCase.consName);
-            if (id == null) {
-                throw new CodeGeneratorException("Typechecker missed unknown case in pattern match");
-            }
-            addLine("case " + id.intValue() + ": {");
-            int index = 0;
-            Scope scope = initialScope;
-            for (final Variable variable : theCase.variables) {
-                scope = vardec(scope, variable, discriminator.name + "._" + (index++)).scope;
-            }
-            final TranslationResult<Variable> bodyResult = translateExp(theCase.body, scope);
-            addLine(matchResult.name + " = " + bodyResult.result.name + ";");
-            addLine("break;");
-            addLine("}");
-            return new TranslationResult<Class<Void>>(Void.TYPE,
-                                                      initialScope.joinFromNestedScope(bodyResult.scope));
-        }
-
+        // public TranslationResult<Class<Void>> translateCase(final Variable discriminator,
+        //                                                     final Variable matchResult,
+        //                                                     final Case theCase,
+        //                                                     final Scope initialScope)
+        //     throws CodeGeneratorException {
+        //     final Integer id = constructors.get(theCase.consName);
+        //     if (id == null) {
+        //         throw new CodeGeneratorException("Typechecker missed unknown case in pattern match");
+        //     }
+        //     addLine("case " + id.intValue() + ": {");
+        //     int index = 0;
+        //     Scope scope = initialScope;
+        //     for (final Variable variable : theCase.variables) {
+        //         scope = vardec(scope, variable, discriminator.name + "._" + (index++)).scope;
+        //     }
+        //     final TranslationResult<Variable> bodyResult = translateExp(theCase.body, scope);
+        //     addLine(matchResult.name + " = " + bodyResult.result.name + ";");
+        //     addLine("break;");
+        //     addLine("}");
+        //     return new TranslationResult<Class<Void>>(Void.TYPE,
+        //                                               initialScope.joinFromNestedScope(bodyResult.scope));
+        // }        
+        
         // match exp { ... }
         //
         // let temp0 = undefined;
         // switch (...) { case ...: temp0 = ...; }
-        public TranslationResult<Variable> translateMatchExp(final MatchExp exp, final Scope initialScope)
+        // public TranslationResult<Variable> translateMatchExp(final MatchExp exp, final Scope initialScope)
+        //     throws CodeGeneratorException {
+        //     final TranslationResult<Variable> result = tempVariableVardec(initialScope, "undefined");
+        //     final TranslationResult<Variable> discriminator = translateExp(exp.exp, result.scope);
+        //     addLine("switch (" + discriminator.result.name + ".id) {");
+        //     Scope scope = discriminator.scope;
+        //     for (final Case theCase : exp.cases) {
+        //         scope = translateCase(discriminator.result,
+        //                               result.result,
+        //                               theCase,
+        //                               scope).scope;
+        //     }
+        //     addLine("}");
+        //     return new TranslationResult<Variable>(result.result, scope);
+        // }
+
+        // ---BEGIN EVERYTHING FOR NEW MATCH---
+        public void patternToBooleanExp(final String base,
+                                        final Pattern pattern,
+                                        final StringBuffer buffer,
+                                        final boolean initial)
             throws CodeGeneratorException {
-            final TranslationResult<Variable> result = tempVariableVardec(initialScope, "undefined");
-            final TranslationResult<Variable> discriminator = translateExp(exp.exp, result.scope);
-            addLine("switch (" + discriminator.result.name + ".id) {");
-            Scope scope = discriminator.scope;
-            for (final Case theCase : exp.cases) {
-                scope = translateCase(discriminator.result,
-                                      result.result,
-                                      theCase,
-                                      scope).scope;
+            if (pattern instanceof ConsPattern) {
+                final ConsPattern asCons = (ConsPattern)pattern;
+                if (!initial) {
+                    buffer.append(" && ");
+                }
+                buffer.append(base);
+                buffer.append(".id == ");
+                buffer.append(constructorId(asCons.consName));
+                int patternNum = 0;
+                for (final Pattern subPattern : asCons.patterns) {
+                    patternToBooleanExp(base + "._" + patternNum,
+                                        subPattern,
+                                        buffer,
+                                        false);
+                }
+            } else if (!(pattern instanceof UnderscorePattern ||
+                         pattern instanceof VariablePattern)) {
+                throw new CodeGeneratorException("Unrecognized pattern: " + pattern.toString());
             }
-            addLine("}");
-            return new TranslationResult<Variable>(result.result, scope);
         }
 
+        public String patternToBooleanExp(final String base,
+                                          final Pattern pattern)
+            throws CodeGeneratorException {
+            final StringBuffer retval = new StringBuffer();
+            patternToBooleanExp(base, pattern, retval, true);
+            final String asString = retval.toString();
+            // as an optimization, we intentionally avoid true until this moment
+            if (asString.length() == 0) {
+                return "true";
+            } else {
+                return asString;
+            }
+        }
+
+        public TranslationResult<Class<Void>> introducePatternVariables(final String base,
+                                                                        final Pattern pattern,
+                                                                        Scope scope)
+            throws CodeGeneratorException {
+            if (pattern instanceof VariablePattern) {
+                scope = vardec(scope,
+                               ((VariablePattern)pattern).variable,
+                               base).scope;
+            } else if (pattern instanceof ConsPattern) {
+                int patternNum = 0;
+                for (final Pattern subPattern : ((ConsPattern)pattern).patterns) {
+                    scope = introducePatternVariables(base + "._" + patternNum,
+                                                      subPattern,
+                                                      scope).scope;
+                }
+            } else if (!(pattern instanceof UnderscorePattern)) {
+                throw new CodeGeneratorException("Unrecognized pattern: " + pattern.toString());
+            }
+            return new TranslationResult<Class<Void>>(Void.TYPE, scope);
+        }
+
+        public TranslationResult<Class<Void>> translateCase(final Case theCase,
+                                                            final Variable discriminant,
+                                                            final Variable result,
+                                                            final Scope initialScope,
+                                                            final boolean firstCase)
+            throws CodeGeneratorException {
+            final String header = (firstCase) ? "if (" : "} else if (";
+            final String condition = patternToBooleanExp(discriminant.name, theCase.pattern);
+            addLine(header + condition + ") {");
+            final Scope innerScope = introducePatternVariables(discriminant.name,
+                                                               theCase.pattern,
+                                                               initialScope).scope;
+            final TranslationResult<Variable> bodyResult = translateExp(theCase.body, innerScope);
+            addLine(result.name + " = " + bodyResult.result.name + ";");
+            addLine("}");
+            return new TranslationResult<Class<Void>>(Void.TYPE,
+                                                      initialScope.joinFromNestedScope(bodyResult.scope));
+        }
+        
+        //
+        // match exp { ... }
+        //
+        // exp_statement;
+        // let temp0 = undefined;
+        // if (exp_statement_results == ...) {
+        //   temp0 = ...;
+        // } else if (exp_statement_results == ...) {
+        //   temp0 = ...;
+        // } ...
+        // 
+        public TranslationResult<Variable> translateMatchExp(final MatchExp exp, final Scope initialScope)
+            throws CodeGeneratorException {
+            final TranslationResult<Variable> discriminant = translateExp(exp, initialScope);
+            final TranslationResult<Variable> result = tempVariableVardec(discriminant.scope, "undefined");
+            Scope scope = result.scope;
+            boolean firstCase = true;
+            for (final Case theCase : exp.cases) {
+                scope = translateCase(theCase,
+                                      discriminant.result,
+                                      result.result,
+                                      scope,
+                                      firstCase).scope;
+                if (firstCase) {
+                    firstCase = false;
+                }
+            }
+            return new TranslationResult<Variable>(result.result, scope);
+        }                
+        // ---END EVERYTHING FOR NEW MATCH---
+        
         public TranslationResult<Variable> translatePrintlnExp(final PrintlnExp exp, final Scope scope)
             throws CodeGeneratorException {
             final TranslationResult<Variable> toPrint = translateExp(exp.exp, scope);
