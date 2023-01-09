@@ -10,6 +10,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import org.junit.Test;
 
+import fplang.lexer.Tokenizer;
+import fplang.lexer.TokenizerException;
 import fplang.parser.*;
 
 public class TypecheckerTest {
@@ -41,7 +43,12 @@ public class TypecheckerTest {
                                         final Exp exp) throws TypeErrorException {
         assertExpHasType(expectedType, new HashMap<Variable, TypeTerm>(), exp);
     }
-    
+
+    public static void assertProgramTypechecks(final String program)
+        throws TokenizerException, ParseException, TypeErrorException {
+        Typechecker.assertProgramTypechecks(Parser.parseProgram(Tokenizer.tokenize(program)));
+    }
+        
     @Test
     public void testIntLiteralExp() throws TypeErrorException {
         assertExpHasType(new IntType(),
@@ -197,7 +204,7 @@ public class TypecheckerTest {
                                                   new LessThanOp(),
                                                   new BooleanLiteralExp(false))));
     }
-    
+
     @Test
     public void testBlock() throws TypeErrorException {
         // { 5; true }
@@ -208,127 +215,64 @@ public class TypecheckerTest {
                          new BlockExp(exps));
     }
 
-    // List[A] = Cons(A, List[A]) | Nil
-    public static AlgDef listAlgDef =
-        new AlgDef(new AlgName("List"),
-                   Arrays.asList(new Typevar("A")),
-                   Arrays.asList(new ConsDef(new ConsName("Cons"),
-                                             Arrays.asList(new TypevarType(new Typevar("A")),
-                                                           new AlgebraicType(new AlgName("List"),
-                                                                             Arrays.asList(new TypevarType(new Typevar("A")))))),
-                                 new ConsDef(new ConsName("Nil"),
-                                             new ArrayList<Type>())));
+    public static String listAlgDef =
+        "type List[A] = Cons(A, List[A]) | Nil(); ";
+    public static String mapDef =
+        "def map[A, B](list: List[A], f: (A) => B): List[B] = " +
+        "  match list { " +
+        "    case Cons(head, tail): Cons(f(head), map(tail, f)) " +
+        "    case Nil(): Nil() " +
+        "  }; ";
+    public static String mapProgram =
+        listAlgDef + mapDef;
 
-    // def map[A, B](list: List[A], f: (A) => B): List[B] =
-    //   match list {
-    //     Cons(head, tail): Cons(f(head), map(tail, f))
-    //     Nil(): Nil()
-    //  }
-    public static Exp consBody =
-        new CallLikeExp(new VariableExp(new Variable("Cons")),
-                        Arrays.asList(new CallLikeExp(new VariableExp(new Variable("f")),
-                                                      Arrays.asList(new VariableExp(new Variable("head")))),
-                                      new CallLikeExp(new VariableExp(new Variable("map")),
-                                                      Arrays.asList(new VariableExp(new Variable("tail")),
-                                                                    new VariableExp(new Variable("f"))))));
-    public static Exp mapFunctionDefBody =
-        new MatchExp(new VariableExp(new Variable("list")),
-                     Arrays.asList(new Case(new ConsName("Cons"),
-                                            Arrays.asList(new Variable("head"),
-                                                          new Variable("tail")),
-                                            consBody),
-                                   new Case(new ConsName("Nil"),
-                                            new ArrayList<Variable>(),
-                                            new CallLikeExp(new VariableExp(new Variable("Nil")),
-                                                            new ArrayList<Exp>()))));
+    @Test
+    public void testMapIntBool() throws TokenizerException, ParseException, TypeErrorException {
+        assertProgramTypechecks(mapProgram +
+                                "map(Cons(1, Cons(2, Nil())), (x) => x < 2)");
+    }
+
+    @Test
+    public void testMapIntInt() throws TokenizerException, ParseException, TypeErrorException {
+        assertProgramTypechecks(mapProgram +
+                                "map(Cons(1, Cons(2, Nil())), (x) => x + 1)");
+    }
+
+    @Test(expected = TypeErrorException.class)
+    public void testNonExhaustiveMatch1() throws TokenizerException, ParseException, TypeErrorException {
+        assertProgramTypechecks(mapProgram +
+                                "match Nil() { " +
+                                "  case Cons(_, Cons(_, Cons(_, _))): 0 " +
+                                "  case Cons(_, Cons(_, _)): 1 " +
+                                "  case Cons(_, _): 2 " +
+                                "}");
+    }
+
+    @Test(expected = TypeErrorException.class)
+    public void testNonExhaustiveMatch2() throws TokenizerException, ParseException, TypeErrorException {
+        assertProgramTypechecks(mapProgram +
+                                "match Nil() { " +
+                                "  case Cons(_, Cons(_, Cons(_, _))): 0 " +
+                                "  case Cons(_, Nil()): 1 " +
+                                "  case Cons(_, _): 2 " +
+                                "}");
+    }
     
-    public static FunctionDef mapFunctionDef =
-        new FunctionDef(new FunctionName("map"),
-                        Arrays.asList(new Typevar("A"),
-                                      new Typevar("B")),
-                        Arrays.asList(new Vardec(new Variable("list"),
-                                                 new AlgebraicType(new AlgName("List"),
-                                                                   Arrays.asList(new TypevarType(new Typevar("A"))))),
-                                      new Vardec(new Variable("f"),
-                                                 new FunctionType(Arrays.asList(new TypevarType(new Typevar("A"))),
-                                                                  new TypevarType(new Typevar("B"))))),
-                        new AlgebraicType(new AlgName("List"),
-                                          Arrays.asList(new TypevarType(new Typevar("B")))),
-                        mapFunctionDefBody);
-
-    public static Program mapProgram =
-        new Program(Arrays.asList(listAlgDef),
-                    Arrays.asList(mapFunctionDef),
-                    new IntLiteralExp(0));
-
-    // map(Cons(1, Cons(2, Nil)), (x) => x < 2)
-    @Test
-    public void testMapIntBool() throws TypeErrorException {
-        final Exp makeList =
-            new CallLikeExp(new VariableExp(new Variable("Cons")),
-                            Arrays.asList(new IntLiteralExp(1),
-                                          new CallLikeExp(new VariableExp(new Variable("Cons")),
-                                                          Arrays.asList(new IntLiteralExp(2),
-                                                                        new CallLikeExp(new VariableExp(new Variable("Nil")),
-                                                                                        new ArrayList<Exp>())))));
-        final Exp function =
-            new MakeHigherOrderFunctionExp(Arrays.asList(new Variable("x")),
-                                           new OpExp(new VariableExp(new Variable("x")),
-                                                     new LessThanOp(),
-                                                     new IntLiteralExp(2)));
-        final Exp call =
-            new CallLikeExp(new VariableExp(new Variable("map")),
-                            Arrays.asList(makeList, function));
-                                                   
-        final Typechecker typechecker = new Typechecker(mapProgram);
-
-        final Unifier unifier = new Unifier();
-        final TypeTerm receivedType = typechecker.typeofExp(call,
-                                                            new HashMap<Variable, TypeTerm>(),
-                                                            unifier);
-        assertEquals(new AlgebraicTypeTerm(new AlgName("List"),
-                                           Arrays.asList(new BoolTypeTerm())),
-                     unifier.transitiveSetRepresentativeFor(receivedType));
-        typechecker.assertProgramTypechecks();
+    @Test(expected = TypeErrorException.class)
+    public void testMatchOnNonAlgebraic() throws TokenizerException, ParseException, TypeErrorException {
+        assertProgramTypechecks(mapProgram +
+                                "match 5 { " +
+                                "  case Cons(_, _): 0 " +
+                                "  case Nil(): 1 " +
+                                "}");
     }
 
-    // map(Cons(1, Cons(2, Nil)), (x) => x + 1)
-    @Test
-    public void testMapIntInt() throws TypeErrorException {
-        final Exp makeList =
-            new CallLikeExp(new VariableExp(new Variable("Cons")),
-                            Arrays.asList(new IntLiteralExp(1),
-                                          new CallLikeExp(new VariableExp(new Variable("Cons")),
-                                                          Arrays.asList(new IntLiteralExp(2),
-                                                                        new CallLikeExp(new VariableExp(new Variable("Nil")),
-                                                                                        new ArrayList<Exp>())))));
-        final Exp function =
-            new MakeHigherOrderFunctionExp(Arrays.asList(new Variable("x")),
-                                           new OpExp(new VariableExp(new Variable("x")),
-                                                     new PlusOp(),
-                                                     new IntLiteralExp(1)));
-        final Exp call =
-            new CallLikeExp(new VariableExp(new Variable("map")),
-                            Arrays.asList(makeList, function));
-                                                   
-        final Typechecker typechecker = new Typechecker(mapProgram);
-
-        final Unifier unifier = new Unifier();
-        final TypeTerm receivedType = typechecker.typeofExp(call,
-                                                            new HashMap<Variable, TypeTerm>(),
-                                                            unifier);
-        assertEquals(new AlgebraicTypeTerm(new AlgName("List"),
-                                           Arrays.asList(new IntTypeTerm())),
-                     unifier.transitiveSetRepresentativeFor(receivedType));
-        typechecker.assertProgramTypechecks();
-    }
-
-    // The above two large tests collectively cover:
+    // These above larger tests collectively cover:
     // - Calls to named functions
     // - Calls to named functions with generics
     // - Use of constructors
     // - Use of generic constructors
-    // - Use of match
+    // - Use of match, including exhaustivity checking
     //
     // However, these are super course-grained.  It'd be ideal to have more tests.
     // Additionally, many of these tests do not properly stress all possible conditions,
