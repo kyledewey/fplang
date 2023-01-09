@@ -142,6 +142,12 @@ function __temp_function_0(closure, x*) {
 
 # Running the Compiler
 
+```console
+mvn exec:java -Dexec.mainClass="fplang.Compiler" -Dexec.args="examples/list_length.fplang output.js"
 ```
-mvn exec:java -Dexec.mainClass="fplang.Compiler" -Dexec.args="examples/list_length.fp output.js"
+
+# Running End-to-End Tests
+
+```console
+./run_end_to_end_tests.py
 ```
