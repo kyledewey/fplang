@@ -8,9 +8,12 @@ Key features:
 - Type inference
 - Algebraic data types
 - Pattern matching
+- Non-trivial syntax
 
 Assumptions:
 - `void` is a special value (Scala/Swift semantics)
+
+## Abstract Grammar ##
 
 ```
 var is a variable
@@ -37,7 +40,8 @@ functiondef ::= `def` functionname `[` typevar* `]` `(` vardec* `)` `:` type `=`
 program ::= algdef* functiondef* exp // exp is the entry point
 ```
 
-Refactored grammar:
+## Concrete Grammar ##
+
 ```
 id is an identifier
 i is an integer
@@ -74,50 +78,7 @@ program ::= algdef* functiondef* exp // exp is the entry point
 Syntactically, `consname(exp*)` and `functionname(exp*)` are both special cases of `exp(exp*)`, which cannot be differentiated until typechecking.
 This is because an identifier can be an expression, and variables in an expression context cannot unambiguously be resolved (is this a variable?  A constructor name?  A function name?) without type information.
 
-
-Example code from typechecking videos:
-```
-List[A] = Cons(A, List[A]) | Nil()
-
-Cons(1, Cons(1, Nil())): List[int]
-Cons(true, Cons(false, Cons(true, Nil()))): List[bool]
-
-BinaryTree[A] = Leaf() | Node(BinaryTree[A], A, BinaryTree[A])
-
-       +: (int, int) => int
-       <: (int, int) => bool
-       ==: (A, A) => bool
-
-let a = 1 in a
-
-let x = 5 in
-let y = x + x in
-y < x
-
-(x, y) => x + y: (int, int) => int
-
-let f = (x, y) => x + y in
-f(1, 2)
-
-((x, y) => x + y)(1, 2)
-
-def length[A](list: List[A]): int =
-  match list {
-    Cons(head, tail): 1 + length(tail)
-    Nil(): 0
-  }
-
-map(Cons(1, Cons(2, Cons(3, Nil()))), (x) => x + 1): Cons(2, Cons(3, Cons(4, Nil())))
-map(Cons(1, Cons(2, Cons(3, Nil()))), (x) => x < 2): Cons(true, Cons(false, Cons(false, Nil())))
-
-def map[A, B](list: List[A], f: (A) => B): List[B] =
-  match list {
-    Cons(head, tail): Cons(f(head), map(tail, f))
-    Nil(): Nil()
-  }
-```
-
-# Code Generation
+# Code Generation #
 
 - For each algebraic data type, each constructor is given a unique number
 - Each expression translates into:
